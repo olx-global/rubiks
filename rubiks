@@ -24,7 +24,5 @@ import load_python
 r = rubiks_repository.RubiksRepository()
 coll = load_python.PythonFileCollection(r)
 
-with open(os.path.join(repobase, 'Makefile')) as f:
-    mf_text = f.read().replace('\t', '    ')
-
-print(yaml_safe_dump({'foo': mf_text, 'bar': [1, 2, 3, 4], 'baz': ['1', '2', 'three', 'four', 'foo bar', {'baz': 'qux', 'foo': 'bar', 'xyzzy': 'foo, bar, baz'}]}, default_flow_style=False))
+path = load_python.loader.Path(os.path.join(r.basepath, 'test/src/test1.kube'), r)
+coll.add_file(path, load_python.PythonFile(coll, path))

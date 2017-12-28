@@ -1,0 +1,3 @@
+[layout]
+sources = test/src
+outputs = test/out

@@ -1,0 +1,6 @@
+import os
+
+with open(os.path.join(repobase, 'Makefile')) as f:
+    mf_text = f.read().replace('\t', '    ')
+
+yaml_dump({'foo': mf_text, 'bar': [1, 2, 3, 4], 'baz': ['1', '2', 'three', 'four', 'foo bar', {'baz': 'qux', 'foo': 'bar', 'xyzzy': 'foo, bar, baz'}]})
