@@ -1,3 +1,9 @@
+# python code caches
 *.py[co]
+__pycache__
+
+# vi swap files
 *.sw[op]
+
+# yaml build directory
 build
