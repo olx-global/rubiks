@@ -12,7 +12,7 @@ import weakref
 import loader
 from kube_yaml import yaml_safe_dump
 from load_python_core import do_compile_internal
-from kube_obj import KubeObj
+from kube_obj import KubeObj, KubeBaseObj
 import kube_objs
 from ns_registry import NamespaceRegistry
 from util import mkdir_p
@@ -77,6 +77,8 @@ class PythonFileCollection(loader.Loader):
 
 
 class PythonFile(object):
+    _kube_objs = None
+
     def __init__(self, collection, path):
         assert path.basename != '' and '.' not in path.basename
 
@@ -124,6 +126,21 @@ class PythonFile(object):
     def get_symbol(self, symname):
         return self.module.__dict__[symname]
 
+    @classmethod
+    def get_kube_objs(cls):
+        if cls._kube_objs is None:
+            cls._kube_objs = {}
+
+            for k in kube_objs.__dict__:
+                if isinstance(kube_objs.__dict__[k], type) and k not in ('KubeObj', 'KubeBaseObj', 'KubeSubObj'):
+                    try:
+                        if isinstance(kube_objs.__dict__[k](), KubeBaseObj):
+                            cls._kube_objs[k] = kube_objs.__dict__[k]
+                    except:
+                        pass
+
+        return cls._kube_objs
+
     def default_ns(self):
         def import_python(name, *exports):
             self.debug(3, '{}: import_python({}, ...)'.format(self.path.src_rel_path, name))
@@ -144,8 +161,6 @@ class PythonFile(object):
             'output': output,
             }
 
-        for k in kube_objs.__dict__:
-            if isinstance(kube_objs.__dict__[k], type) and kube_objs.__dict__[k] is not KubeObj:
-                ret[k] = kube_objs.__dict__[k]
+        ret.update(self.__class__.get_kube_objs())
 
         return ret
