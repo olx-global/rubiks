@@ -1,0 +1,25 @@
+#!/usr/bin/env python
+# (c) Copyright 2017 OLX
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
+import os
+import sys
+
+repobase = os.path.realpath(os.path.split(sys.modules[__name__].__file__)[0])
+
+sys.path.insert(0, os.path.join(repobase, 'lib'))
+sys.path.insert(0, os.path.join(repobase, 'vendor/{}/lib'.format(sys.version_info[0])))
+
+# === real program starts here ===
+
+import yaml
+from kube_yaml import *
+
+with open(os.path.join(repobase, 'Makefile')) as f:
+    mf_text = f.read().replace('\t', '    ')
+
+print(yaml_safe_dump({'foo': mf_text, 'bar': [1, 2, 3, 4], 'baz': ['1', '2', 'three', 'four', 'foo bar', {'baz': 'qux', 'foo': 'bar', 'xyzzy': 'foo, bar, baz'}]}, default_flow_style=False))
