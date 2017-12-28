@@ -17,9 +17,9 @@ sys.path.insert(0, os.path.join(repobase, 'lib/{}'.format(sys.version_info[0])))
 
 # === real program starts here ===
 
-from kube_yaml import *
 import rubiks_repository
 import load_python
+import kube_loader
 
 r = rubiks_repository.RubiksRepository()
 coll = load_python.PythonFileCollection(r)
