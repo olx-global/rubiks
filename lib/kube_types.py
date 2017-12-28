@@ -80,8 +80,10 @@ class Object(KubeType):
         return self.cls.__name__
 
     def do_check(self, value, path):
+        self.validation_text = "Not the right object type"
         if not isinstance(value, self.cls):
             return False
+        self.validation_text = "Validation call failed"
         if hasattr(value, 'validate'):
             return value.validate(path)
         return True
@@ -97,11 +99,23 @@ class Nullable(KubeType):
 
 
 class Boolean(KubeType):
+    validation_text = "Expected boolean"
+
     def do_check(self, value, path):
         return value is True or value is False
 
 
+class Enum(KubeType):
+    def __init__(self, *args):
+        self.enums = args
+
+    def do_check(self, value, path):
+        return value in self.enums
+
+
 class Integer(KubeType):
+    validation_text = "Expected integer"
+
     def do_check(self, value, path):
         if sys.version_info[0] == 2:
             return isinstance(value, (int, long))
@@ -109,6 +123,8 @@ class Integer(KubeType):
 
 
 class Number(KubeType):
+    validation_text = "Expected number"
+
     def do_check(self, value, path):
         if sys.version_info[0] == 2:
             return isinstance(value, (int, long, float))
@@ -116,6 +132,7 @@ class Number(KubeType):
 
 
 class Positive(KubeType):
+    validation_text = "Expected positive"
     wrapper = True
 
     def do_check(self, value, path):
@@ -123,6 +140,7 @@ class Positive(KubeType):
 
 
 class NonZero(KubeType):
+    validation_text = "Expected non-zero"
     wrapper = True
 
     def do_check(self, value, path):
@@ -130,6 +148,8 @@ class NonZero(KubeType):
 
 
 class String(KubeType):
+    validation_text = "Expected string"
+
     def do_check(self, value, path):
         if sys.version_info[0] == 2:
             return isinstance(value, basestring)
@@ -151,6 +171,13 @@ class Identifier(String):
         return True
 
 
+class Path(String):
+    def do_check(self, value, path):
+        if not String.do_check(self, value, path):
+            return False
+        return value == '' or value.startswith('/')
+
+
 class NonEmpty(KubeType):
     wrapper = True
 
@@ -167,7 +194,7 @@ class List(KubeType):
 
         count = 0
         for v in value:
-            if not self.check_wrap(value, path="{}[{:d}]".format(path, count)):
+            if not self.check_wrap(v, path="{}[{:d}]".format(path, count)):
                 return False
             count += 1
 
@@ -179,6 +206,9 @@ class Map(KubeType):
         self.key = self.__class__.construct_arg(key)
         self.value = self.__class__.construct_arg(value)
 
+    def name(self):
+        return '{}<{}, {}>'.format(self.__class__.__name__, self.key.name(), self.value.name())
+
     def check(self, value, path=None):
         if not isinstance(value, dict):
             raise KubeTypeValidationError(value, self.name(), path, "not a dictionary")
@@ -189,3 +219,5 @@ class Map(KubeType):
         for k in value.keys():
             self.key.check(k, path='{}[{}] (key)'.format(path, k))
             self.value.check(value[k], path='{}[{}]'.format(path, k))
+
+        return True
