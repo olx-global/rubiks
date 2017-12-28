@@ -9,3 +9,9 @@ from kube_obj import KubeObj
 
 class Namespace(KubeObj):
     apiVersion = 'v1'
+    kind = 'Namespace'
+    kubectltype = 'ns'
+    identifier = 'name'
+
+    def render(self):
+        return {'metadata': {'name': self.name, 'labels': {'name': self.name}}}

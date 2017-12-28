@@ -12,6 +12,8 @@ import weakref
 import loader
 from kube_yaml import yaml_safe_dump
 from load_python_core import do_compile_internal
+from kube_obj import KubeObj
+import kube_objs
 
 class PythonFileCollection(loader.Loader):
     def __init__(self, repository):
@@ -77,11 +79,23 @@ class PythonFile(object):
             self.debug(3, '{}: import_python({}, ...)'.format(self.path.src_rel_path, name))
             return self.collection().import_python(self, name, exports)
 
+        def output(val):
+            if not isinstance(val, KubeObj):
+                raise TypeError("argument to output should be a KubeObj derivative")
+            print(yaml_safe_dump(val.do_render(), default_flow_style=False))
+
         def yaml_dump(val):
             print(yaml_safe_dump(val, default_flow_style=False))
 
-        return {
+        ret = {
             'import_python': import_python,
+            'output': output,
             'yaml_dump': yaml_dump,
             'repobase': self.collection().repository.basepath,
             }
+
+        for k in kube_objs.__dict__:
+            if isinstance(kube_objs.__dict__[k], type) and kube_objs.__dict__[k] is not KubeObj:
+                ret[k] = kube_objs.__dict__[k]
+
+        return ret
