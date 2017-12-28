@@ -141,10 +141,62 @@ class KubeBaseObj(object):
             else:
                 types[k].check(None, path + '.' + k)
 
+        for k in self._data:
+            if k not in types:
+                raise KubeTypeUnresolvable(
+                    "Unknown data key {} - no type information".format(k))
+
         return True
 
     def render(self):
         return None
+
+    def renderer(self, zlen_ok=(), order=(), mapping=None, return_none=False):
+        ret = copy.deepcopy(self._data)
+
+        def _render(x):
+            if isinstance(x, KubeBaseObj):
+                return x.do_render()
+            return x
+
+        for r in self._data:
+            res = _render(ret[r])
+            if res is None:
+                del ret[r]
+            else:
+                ret[r] = res
+
+        for r in self._data:
+            if r not in ret:
+                continue
+            if isinstance(ret[r], (list, tuple)):
+                ret[r] = list(filter(lambda x: x is not None, map(_render, ret[r])))
+            elif isinstance(ret[r], dict):
+                tret = OrderedDict()
+                for k in ret[r]:
+                    res = _render(ret[r][k])
+                    if res is not None:
+                        tret[k] = res
+                ret[r] = tret
+
+            if isinstance(ret[r], (list, tuple, dict)):
+                if len(ret[r]) == 0 and r not in zlen_ok:
+                    del ret[r]
+
+        if mapping is not None:
+            for k in mapping:
+                if k in ret:
+                    if mapping[k] is not None:
+                        ret[mapping[k]] = ret[k]
+                    del ret[k]
+
+        if return_none and len(ret) == 0:
+            return None
+
+        if len(order) != 0:
+            return order_dict(ret, order)
+
+        return ret
 
     def do_render(self):
         self.validate()

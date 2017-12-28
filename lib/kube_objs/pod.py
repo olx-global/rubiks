@@ -27,16 +27,21 @@ class Memory(String):
 class ContainerPort(KubeSubObj):
     _defaults = {
         'containerPort': 80,
+        'name': None,
         'protocol': 'TCP',
         }
 
     _types = {
         'containerPort': Positive(NonZero(Integer)),
+        'name': Nullable(String),
         'protocol': Enum('TCP', 'UDP'),
         }
 
     def render(self):
-        return order_dict(self._data, ('containerPort', 'protocol'))
+        ret = copy.deepcopy(self._data)
+        if ret['name'] is None:
+            del ret['name']
+        return order_dict(ret, ('name', 'containerPort', 'protocol'))
 
 
 class ContainerResourceEachSpec(KubeSubObj):
@@ -51,16 +56,7 @@ class ContainerResourceEachSpec(KubeSubObj):
         }
 
     def render(self):
-        ret = OrderedDict()
-
-        for i in ('cpu', 'memory'):
-            if self._data[i] is not None:
-                ret[i] = self._data[i]
-
-        if len(ret) == 0:
-            return None
-
-        return ret
+        return self.renderer(order=('cpu', 'memory'), return_none=True)
 
 
 class ContainerResourceSpec(KubeSubObj):
@@ -70,18 +66,7 @@ class ContainerResourceSpec(KubeSubObj):
         }
 
     def render(self):
-        ret = OrderedDict()
-
-        for i in ('requests', 'limits'):
-            if self._data[i] is not None:
-                r = self._data[i].do_render()
-                if r is not None:
-                    ret[i] = r
-
-        if len(ret) == 0:
-            return None
-
-        return ret
+        return self.renderer(order=('requests', 'limits'), return_none=True)
 
 
 class ContainerEnvBaseSpec(KubeSubObj):
@@ -104,10 +89,7 @@ class ContainerEnvSpec(ContainerEnvBaseSpec):
         }
 
     def render(self):
-        ret = OrderedDict()
-        ret['name'] = self._data['name']
-        ret['value'] = self._data['value']
-        return ret
+        return self.renderer(order=('name', 'value'))
 
 
 class ContainerEnvSecretSpec(ContainerEnvBaseSpec):
@@ -145,11 +127,7 @@ class ContainerVolumeMountSpec(KubeSubObj):
         }
 
     def render(self):
-        ret = OrderedDict(name=self._data['name'])
-        ret['mountPath'] = self._data['path']
-        if self._data['readOnly'] is not None:
-            ret['readOnly'] = self._data['readOnly']
-        return ret
+        return self.renderer(order=('name', 'path', 'readOnly'), mapping={'path': 'mountPath'})
 
 
 class ContainerProbeBaseSpec(KubeSubObj):
@@ -187,17 +165,20 @@ class ContainerProbeHTTPSpec(ContainerProbeBaseSpec):
     _defaults = {
         'path': '',
         'port': 80,
+        'scheme': None,
         }
 
     _types = {
         'path': NonEmpty(Path),
         'port': Positive(NonZero(Integer)),
+        'scheme': Nullable(Enum('HTTP', 'HTTPS')),
         }
 
     def render_check(self):
-        if port == 0:
+        ret = self.renderer(order=('scheme', 'port', 'path'))
+        if ret['port'] == 0:
             return None
-        return {'httpGet': {'path': self._data['path'], 'port': self._data['port']}}
+        return {'httpGet': ret}
 
 
 class SecurityContext(KubeSubObj):
@@ -209,11 +190,9 @@ class SecurityContext(KubeSubObj):
         'privileged': Nullable(Boolean),
         }
 
-    def render_check(self):
-        ret = {}
-        if self._data['privileged'] is None:
-            ret['privileged'] = self._data['privileged']
-        return ret
+    def render(self):
+        return self.renderer()
+
 
 class ContainerSpec(KubeSubObj):
     identifier = 'name'
@@ -221,7 +200,7 @@ class ContainerSpec(KubeSubObj):
     _defaults = {
         'image': '',
         'command': None,
-        'env': {},
+        'env': [],
         'imagePullPolicy': None,
         'livenessProbe': None,
         'ports': [],
@@ -235,7 +214,7 @@ class ContainerSpec(KubeSubObj):
     _types = {
         'image': NonEmpty(String),
         'command': Nullable(List(String)),
-        'env': Nullable(Map(String, ContainerEnvBaseSpec)),
+        'env': Nullable(List(ContainerEnvBaseSpec)),
         'imagePullPolicy': Nullable(Enum('Always', 'IfNotPresent')),
         'livenessProbe': Nullable(ContainerProbeBaseSpec),
         'ports': Nullable(List(ContainerPort)),
@@ -247,53 +226,14 @@ class ContainerSpec(KubeSubObj):
         }
 
     def render(self):
-        ret = copy.copy(self._data)
+        ret = self.renderer(zlen_ok=('securityContext',))
 
-        for k in self._data:
-            if self._data[k] is None:
-                del ret[k]
-
-        if len(ret['command']) > 0:
+        if 'command' in ret and len(ret['command']) > 0:
             cmd = ret['command']
             ret['command'] = cmd[0]
             ret['args'] = cmd[1:]
         else:
             del ret['command']
-
-        def _render(x):
-            if isinstance(x, KubeBaseObj):
-                return x.do_render()
-            return x
-
-        for i in ('env', 'ports', 'volumeMounts'):
-            if i not in ret:
-                continue
-            if hasattr(ret[i], 'keys'):
-                nkeys = set()
-                for k in ret[i].keys():
-                    ret[i][k] = _render(ret[i][k])
-                    if ret[i][k] is None:
-                        nkeys.add(k)
-                for k in nkeys:
-                    del ret[i][k]
-            else:
-                ret[i] = list(filter(lambda x: x is not None, map(_render, ret[i])))
-
-            if len(ret[i]) == 0:
-                del ret[i]
-
-        for i in ('imagePullPolicy', 'livenessProbe', 'readinessProbe', 'terminationMessagePath', 'securityContext'):
-            if i not in ret:
-                continue
-            ret[i] = _render(ret[i])
-            if ret[i] is None:
-                del ret[i]
-
-        if ret['resources'] is not None:
-            ret['resources'] = ret['resources'].do_render()
-
-        if ret['resources'] is None:
-            del ret['resources']
 
         return order_dict(ret, ('name', 'image', 'command', 'args', 'env', 'ports'))
 
@@ -318,9 +258,7 @@ class PodVolumeHostSpec(PodVolumeBaseSpec):
         }
 
     def render(self):
-        ret = OrderedDict(name=self._data['name'])
-        ret['hostPath'] = {'path': self._data['path']}
-        return ret
+        return self.renderer(mapping={'path': 'hostPath'}, order=('name',))
 
 
 class PodVolumeConfigMapSpec(PodVolumeBaseSpec):
@@ -421,28 +359,7 @@ class PodTemplateSpec(KubeSubObj):
         }
 
     def render(self):
-        ret = copy.copy(self._data)
-
-        for k in self._data:
-            if self._data[k] is None:
-                del ret[k]
-
-        del ret['name']
-
-        def _render(x):
-            if isinstance(x, KubeBaseObj):
-                return x.do_render()
-            return x
-
-        for k in ('containers', 'imagePullSecrets', 'volumes'):
-            if k not in ret:
-                continue
-
-            ret[k] = list(filter(lambda x: x is not None, map(_render, ret[k])))
-
-            if len(ret[k]) == 0:
-                del ret[k]
-
+        ret = self.renderer(zlen_ok=('securityContext',), order=('containers',), mapping={'name': None})
         if self._data['name'] is not None:
-            return {'metadata': {'labels': {'name': self._data['name']}}, 'spec': order_dict(ret, ('containers',))}
-        return {'spec': order_dict(ret, ('containers',))}
+            return {'metadata': {'labels': {'name': self._data['name']}}, 'spec': ret}
+        return {'spec': ret}
