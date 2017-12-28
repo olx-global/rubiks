@@ -10,6 +10,7 @@ from collections import OrderedDict
 import json
 
 from kube_obj import KubeObj
+from kube_types import *
 
 class Secret(KubeObj):
     apiVersion = 'v1'
@@ -19,6 +20,11 @@ class Secret(KubeObj):
     _defaults = {
         'type': 'Opaque',
         'secrets': {},
+        }
+
+    _types = {
+        'type': NonEmpty(String),
+        'secrets': Map(String, String),
         }
 
     def render(self):
@@ -38,6 +44,10 @@ class DockerCredentials(Secret):
         'secrets': {'.dockercfg': ''},
         'dockers': {},
     }
+
+    _types = {
+        'dockers': Map(String, Map(String, String)),
+        }
 
     def render(self):
         if len(self._data['dockers']) == 0:

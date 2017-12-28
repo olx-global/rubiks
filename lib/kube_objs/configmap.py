@@ -6,6 +6,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from kube_obj import KubeObj
+from kube_types import *
 
 class ConfigMap(KubeObj):
     apiVersion = 'v1'
@@ -14,6 +15,10 @@ class ConfigMap(KubeObj):
 
     _defaults = {
         'files': {}
+        }
+
+    _types = {
+        'files': Map(String, String),
         }
 
     def render(self):

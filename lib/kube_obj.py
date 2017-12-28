@@ -9,15 +9,40 @@ from collections import OrderedDict
 from kube_types import *
 import copy
 
+
+def order_dict(src, order):
+    ret = OrderedDict()
+    for k in order:
+        if k in src:
+            ret[k] = src[k]
+    if isinstance(src, OrderedDict):
+        keys = src.keys()
+    else:
+        keys = sorted(src.keys())
+    for k in keys:
+        if k not in order:
+            ret[k] = src[k]
+    return ret
+
+
+class KubeTypeUnresolvable(Exception):
+    pass
+
+
 class KubeBaseObj(object):
     _defaults = {}
     _types = {}
+    has_metadata = False
 
     def __init__(self, *args, **kwargs):
         # put the identifier in if it's specified
         if hasattr(self, 'identifier') and len(args) > 0 and self.identifier not in kwargs:
             kwargs[self.identifier] = args[0]
         self._data = self._find_defaults(False)
+
+        if self.has_metadata:
+            self.annotations = {}
+            self.labels = {}
 
         if hasattr(self, 'early_init'):
             self.early_init(*args, **kwargs)
@@ -49,37 +74,83 @@ class KubeBaseObj(object):
                     ret.update(copy.deepcopy(cls._defaults))
         _recurse(self.__class__)
         if hasattr(self, 'identifier'):
-#            if types:
-#               ret[self.identifier] = self.Identifier
-#            else:
+            if types:
+                ret[self.identifier] = Identifier
+            else:
                 ret[self.identifier] = ''
         return ret
+
+    def validate(self, path=None):
+        def basic_validation(typ):
+            if isinstance(typ, KubeType):
+                return typ
+            elif isinstance(typ, (type, KubeBaseObj)):
+                return KubeType.construct_arg(typ)
+            elif Integer().do_check(typ, None):
+                if typ > 0:
+                    return Positive(NonZero(Integer))
+                elif typ < 0:
+                    return NonZero(Integer)
+                return Integer()
+            elif Number().do_check(typ, None):
+                if typ > 0:
+                    return Positive(Number)
+                return Number()
+            elif Boolean().do_check(typ, None):
+                return Boolean()
+            elif String().do_check(typ, None):
+                return NonEmpty(String)
+            return None
+
+        if path is None:
+            path = 'self'
+
+        types = self._find_defaults(False)
+        types.update(self._find_defaults(True))
+
+        if hasattr(self, 'labels'):
+            Map(String, String).check(self.labels, '{}.(labels)'.format(path))
+        if hasattr(self, 'annotations'):
+            Map(String, String).check(self.annotations, '{}.(annotations)'.format(path))
+
+        for k in types:
+            t = basic_validation(types[k])
+            if t is not None:
+                types[k] = t
+            elif isinstance(types[k], (list, tuple)):
+                if len(types[k]) > 0:
+                    t = basic_validation(types[k][0])
+                    if t is not None:
+                        types[k] = NonEmpty(List(t))
+            elif isinstance(types[k], dict):
+                if len(types[k]) > 0:
+                    kk = tuple(types[k].keys())[0]
+                    vv = types[k][kk]
+                    tk = basic_validation(kk)
+                    tv = basic_validation(vv)
+                    if tk is not None and tv is not None:
+                        types[k] = NonEmpty(Dict(tk, tv))
+
+            if not isinstance(types[k], KubeType):
+                raise KubeTypeUnresolvable(
+                    "Couldn't resolve (from {}) {} into a default type".format(k, repr(types[k])))
+
+        for k in types:
+            if k in self._data:
+                types[k].check(self._data[k], path + '.' + k)
+            else:
+                types[k].check(None, path + '.' + k)
+
+        return True
 
     def render(self):
         return None
 
     def do_render(self):
-        def make_first(obj, k):
-            if k not in obj:
-                return OrderedDict(obj)
-            else:
-                kwargs = {k: obj[k]}
-                ret = OrderedDict(**kwargs)
-                if isinstance(obj, OrderedDict):
-                    for kk in obj.keys():
-                        if kk == k:
-                            continue
-                        ret[kk] = obj[kk]
-                else:
-                    for kk in sorted(obj.keys()):
-                        if kk == k:
-                            continue
-                        ret[kk] = obj[kk]
-            return ret
-
+        self.validate()
         obj = self.render()
         if obj is None:
-            raise TypeError("Cannot render object of type {}: no render() method".format(self.__class__.__name__))
+            return None
 
         if hasattr(self, 'apiVersion') and hasattr(self, 'kind'):
             ret = OrderedDict(apiVersion=self.apiVersion)
@@ -87,14 +158,42 @@ class KubeBaseObj(object):
         else:
             ret = OrderedDict()
 
-        if 'metadata' in obj:
-            obj['metadata'] = make_first(obj['metadata'], self.identifier)
-        obj = make_first(obj, 'metadata')
+        if self.has_metadata:
+            if 'metadata' in obj:
+                if 'labels' in obj['metadata']:
+                    obj['metadata']['labels'].update(self.labels)
+                    if hasattr(self, 'identifier'):
+                        obj['metadata']['labels'] = order_dict(obj['metadata']['labels'], (self.identifier,))
+                elif len(self.labels) != 0:
+                    obj['metadata']['labels'] = copy.copy(self.labels)
+
+                if 'annotations' in obj['metadata']:
+                    obj['metadata']['annotations'].update(self.annotations)
+                elif len(self.annotations) != 0:
+                    obj['metadata']['annotations'] = copy.copy(self.annotations)
+
+                if hasattr(self, 'identifier'):
+                    obj['metadata'] = order_dict(obj['metadata'], (self.identifier, 'annotations', 'labels'))
+                else:
+                    obj['metadata'] = order_dict(obj['metadata'], ('annotations', 'labels'))
+
+            elif len(self.labels) != 0 or len(self.annotations) != 0:
+                obj['metadata'] = {}
+                if len(self.labels) != 0:
+                    obj['metadata']['labels'] = copy.copy(self.labels)
+                if len(self.annotations) != 0:
+                    obj['metadata']['annotations'] = copy.copy(self.annotations)
+
+            obj = order_dict(obj, ('metadata', 'spec'))
+
+        if hasattr(self, 'identifier'):
+            obj = order_dict(obj, (self.identifier,))
+
         ret.update(obj)
         return ret
 
     def __getattr__(self, k):
-        if k in self._data:
+        if k != '_data' and k in self._data:
             return self._data[k]
         return object.__getattr__(self, k)
 
@@ -105,13 +204,16 @@ class KubeBaseObj(object):
             return self._data.__setitem__(k, v)
         return object.__setattr__(self, k, v)
 
+
 class KubeObj(KubeBaseObj):
     identifier = 'name'
+    has_metadata = True
 
     def early_init(self, *args, **kwargs):
         if not hasattr(self, 'apiVersion') or not hasattr(self, 'kind') or not hasattr(self, 'identifier'):
             raise TypeError(
                 "Class {} is an abstract base class and can't be instantiated".format(self.__class__.__name__))
+
 
 class KubeSubObj(KubeBaseObj):
     pass
