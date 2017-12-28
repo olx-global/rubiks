@@ -2,3 +2,19 @@ import os
 import ns
 
 output(Namespace(name='test-ns'))
+
+output(DockerCredentials(name='docker-pull-secrets',
+                         dockers={
+                             'mydocker.hub': {
+                                 'username': 'foo',
+                                 'email': 'foo@example.com',
+                                 'password': 'password',
+                                 'auth': 'Zm9vOnBhc3N3b3Jk',
+                                 },
+                             }))
+
+with open(os.path.join(repobase, 'Makefile')) as f:
+    mf_text = f.read().replace('\t', '    ')
+
+output(ConfigMap(name='test-config',
+                 files={'fake-makefile': mf_text}))
