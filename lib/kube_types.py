@@ -171,6 +171,17 @@ class Identifier(String):
         return True
 
 
+class ARN(String):
+    validation_text = "Amazon ARNs start with arn:aws:..."
+
+    def do_check(self, value, path):
+        if not String.do_check(self, value, path):
+            return False
+        if not value.startswith('arn:aws:') and not value.startswith('arn:aws-'):
+            return False
+        return True
+
+
 class Path(String):
     def do_check(self, value, path):
         if not String.do_check(self, value, path):

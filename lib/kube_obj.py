@@ -268,6 +268,14 @@ class KubeBaseObj(object):
             return self._data.__setitem__(k, v)
         return object.__setattr__(self, k, v)
 
+    def __getitem__(self, k):
+        return self._data.__getitem__(k)
+
+    def __setitem__(self, k, v):
+        if not k in self._data:
+            raise KeyError("key {} is not defined for {}".format(k, self.__class__.__name__))
+        return self._data.__setitem__(k, v)
+
 
 class KubeObj(KubeBaseObj):
     identifier = 'name'

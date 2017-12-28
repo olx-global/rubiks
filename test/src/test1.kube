@@ -48,3 +48,34 @@ ctr.volumeMounts.extend((
 ctr.resources.requests.cpu = 0.5
 ret.namespace = test_ns
 output(ret)
+
+labels = {'app': 'myapp', 'deployenv': 'production'}
+ret = Deployment('myapp', replicas=5, minReadySeconds=10, revisionHistoryLimit=5,
+                 selector=MatchLabelsSelector(matchLabels=labels),
+                 strategy=RollingUpdateStrategy(maxSurge=1, maxUnavailable=0),
+                 )
+ret.labels.update(labels)
+ret.pod_template.labels.update(labels)
+ret.pod_template.annotations.update({
+    'prometheus.io/path': '/prometheus',
+    'prometheus.io/port': '8081',
+    'prometheus.io/scrape': 'true',
+    'prometheus.io/jmx.path': '/metrics',
+    'prometheus.io/jmx.port': '5555',
+    'prometheus.io/jmx.scrape': 'true',
+    })
+ret.pod_template.containers.append(ContainerSpec('myapp', image='dockerhub.internal/apps/myapp:latest',
+                                                 command=['java', '-server', '-jar', '-Dmyapp.threads=100', '/myapp.jar'],
+                                                 ))
+ctr = ret.pod_template.containers[-1]
+ctr.env.append(ContainerEnvSpec(name='MANAGEMENT_PORT', value='8081'))
+ctr.env.append(ContainerEnvSecretSpec(name='MYAPP_MAGIC_SECRET', secret_name='myapp', key='magic_token'))
+ret.namespace = test_ns
+output(ret)
+
+ret = LoadBalancerService(name='myapp', selector=labels)
+ret.ports.append(ServicePort(name='https', protocol='TCP', port=443, targetPort=8080))
+ret['aws-load-balancer-backend-protocol'] = 'https'
+ret['aws-load-balancer-ssl-cert'] = 'arn:aws:iam::12345:server-certificate/myapp.certificate'
+ret.namespace = test_ns
+output(ret)
