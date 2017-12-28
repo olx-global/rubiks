@@ -18,6 +18,11 @@ sys.path.insert(0, os.path.join(repobase, 'vendor/{}/lib'.format(sys.version_inf
 
 import yaml
 from kube_yaml import *
+import repository
+
+r = repository.Repository()
+print(r.basepath)
+print(r.status.modifications)
 
 with open(os.path.join(repobase, 'Makefile')) as f:
     mf_text = f.read().replace('\t', '    ')
