@@ -95,6 +95,9 @@ class KubeBaseObj(object):
     def check_namespace(self):
         return True
 
+    def do_validate(self):
+        return True
+
     def validate(self, path=None):
         def basic_validation(typ):
             if isinstance(typ, KubeType):
@@ -164,7 +167,7 @@ class KubeBaseObj(object):
                 raise KubeTypeUnresolvable(
                     "Unknown data key {} - no type information".format(k))
 
-        return True
+        return self.do_validate()
 
     def render(self):
         return None
