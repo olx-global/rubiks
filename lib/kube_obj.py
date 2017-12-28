@@ -6,6 +6,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from collections import OrderedDict
+from kube_types import *
 import copy
 
 class KubeBaseObj(object):
