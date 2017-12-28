@@ -14,10 +14,18 @@ from kube_yaml import yaml_safe_dump
 from load_python_core import do_compile_internal
 from kube_obj import KubeObj
 import kube_objs
+from ns_registry import NamespaceRegistry
+from util import mkdir_p
+
+
+class RubiksOutputError(Exception):
+    pass
+
 
 class PythonFileCollection(loader.Loader):
     def __init__(self, repository):
         loader.Loader.__init__(self, repository)
+        self.outputs = {}
 
     def import_python(self, py_context, name, exports):
         path = self.import_check(py_context, name)
@@ -25,6 +33,48 @@ class PythonFileCollection(loader.Loader):
         self.import_symbols(name, new_context.path, py_context.path, path.basename,
                             new_context.module, py_context.module, exports)
         self.add_dep(py_context.path, path)
+
+    def add_output(self, kobj):
+        if not isinstance(kobj, KubeObj):
+            raise TypeError("argument to output should be a KubeObj derivative")
+
+        if isinstance(kobj, kube_objs.Namespace):
+            ns = kobj
+        else:
+            ns = kobj.namespace
+
+        if ns.name not in self.outputs:
+            self.outputs[ns.name] = {}
+
+        if ns is not kobj:
+            self.add_output(ns)
+
+        identifier = kobj.kubectltype + '-' + getattr(kobj, kobj.identifier)
+
+        if identifier not in self.outputs[ns.name]:
+            obj = kobj.do_render()
+            if obj is not None:
+                self.outputs[ns.name][identifier] = (kobj, yaml_safe_dump(obj, default_flow_style=False))
+            else:
+                self.outputs[ns.name][identifier] = (kobj, None)
+        else:
+            if kobj is not self.outputs[ns.name][identifier][0]:
+                raise RubiksOutputError("Duplicate objects {}/{} found".format(ns.name, identifier))
+
+    def gen_output(self):
+        output_base = os.path.join(self.repository.basepath, self.repository.outputs)
+
+        for ns in self.outputs:
+            if any(map(lambda x: x[1] is not None, self.outputs[ns].values())):
+                mkdir_p(os.path.join(output_base, ns))
+                for ident in self.outputs[ns]:
+                    if self.outputs[ns][ident][1] is not None:
+                        self.debug(1, 'writing {}.yaml in {}'.format(ident, ns))
+                        with open(os.path.join(output_base, ns, '.' + ident + '.tmp'), 'w') as f:
+                            f.write(self.outputs[ns][ident][1])
+                        os.rename(os.path.join(output_base, ns, '.' + ident + '.tmp'),
+                                  os.path.join(output_base, ns, ident + '.yaml'))
+
 
 class PythonFile(object):
     def __init__(self, collection, path):
@@ -79,19 +129,19 @@ class PythonFile(object):
             self.debug(3, '{}: import_python({}, ...)'.format(self.path.src_rel_path, name))
             return self.collection().import_python(self, name, exports)
 
-        def output(val):
-            if not isinstance(val, KubeObj):
-                raise TypeError("argument to output should be a KubeObj derivative")
-            print(yaml_safe_dump(val.do_render(), default_flow_style=False))
+        def get_ns(name):
+            return NamespaceRegistry.get_ns(name)
 
-        def yaml_dump(val):
-            print(yaml_safe_dump(val, default_flow_style=False))
+        def output(val):
+            return self.collection().add_output(val)
 
         ret = {
-            'import_python': import_python,
-            'output': output,
-            'yaml_dump': yaml_dump,
             'repobase': self.collection().repository.basepath,
+
+            'import_python': import_python,
+            'get_ns': get_ns,
+
+            'output': output,
             }
 
         for k in kube_objs.__dict__:

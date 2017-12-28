@@ -26,3 +26,4 @@ coll = load_python.PythonFileCollection(r)
 
 path = load_python.loader.Path(os.path.join(r.basepath, 'test/src/test1.kube'), r)
 coll.add_file(path, load_python.PythonFile(coll, path))
+coll.gen_output()

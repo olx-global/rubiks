@@ -10,7 +10,10 @@ from kube_obj import KubeObj
 class Namespace(KubeObj):
     apiVersion = 'v1'
     kind = 'Namespace'
-    kubectltype = 'ns'
+    kubectltype = 'namespace'
+
+    def set_namespace(self, name):
+        return None
 
     def check_namespace(self):
         return True

@@ -45,6 +45,7 @@ class KubeBaseObj(object):
         self._data = self._find_defaults(False)
 
         self.namespace = None
+        self.set_namespace('default')
 
         if self.has_metadata:
             self.annotations = {}
@@ -85,6 +86,10 @@ class KubeBaseObj(object):
             else:
                 ret[self.identifier] = ''
         return ret
+
+    def set_namespace(self, name):
+        if hasattr(self, 'get_ns'):
+            self.namespace = self.get_ns(name)
 
     def check_namespace(self):
         return True

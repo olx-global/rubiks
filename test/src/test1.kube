@@ -1,9 +1,6 @@
 import os
 import ns
 
-test_ns = Namespace('test-ns')
-output(test_ns)
-
 ret = DockerCredentials('docker-pull-secrets',
                         dockers={
                             'mydocker.hub': {
@@ -13,7 +10,7 @@ ret = DockerCredentials('docker-pull-secrets',
                                 'auth': 'Zm9vOnBhc3N3b3Jk',
                                 },
                             })
-ret.namespace = test_ns
+ret.set_namespace('test-ns')
 output(ret)
 
 with open(os.path.join(repobase, 'Makefile')) as f:
@@ -21,10 +18,11 @@ with open(os.path.join(repobase, 'Makefile')) as f:
 
 ret = ConfigMap('test-config',
                 files={'fake-makefile': mf_text})
-ret.namespace = test_ns
+ret.set_namespace('test-ns')
 output(ret)
 
 ret = DaemonSet('fluentd-elasticsearch')
+ret.set_namespace('kube-system')
 ret.labels.update({'tier': 'monitoring', 'app': ret.name, 'version': 'v1'})
 ret.pod_template.name = 'fluentd'
 ret.pod_template.volumes.extend((
@@ -46,7 +44,6 @@ ctr.volumeMounts.extend((
     ContainerVolumeMountSpec(name=ret.pod_template.volumes[2].name, path='/etc/td-agent'),
     ))
 ctr.resources.requests.cpu = 0.5
-ret.namespace = test_ns
 output(ret)
 
 labels = {'app': 'myapp', 'deployenv': 'production'}
@@ -70,12 +67,12 @@ ret.pod_template.containers.append(ContainerSpec('myapp', image='dockerhub.inter
 ctr = ret.pod_template.containers[-1]
 ctr.env.append(ContainerEnvSpec(name='MANAGEMENT_PORT', value='8081'))
 ctr.env.append(ContainerEnvSecretSpec(name='MYAPP_MAGIC_SECRET', secret_name='myapp', key='magic_token'))
-ret.namespace = test_ns
+ret.set_namespace('myapp')
 output(ret)
 
 ret = LoadBalancerService(name='myapp', selector=labels)
 ret.ports.append(ServicePort(name='https', protocol='TCP', port=443, targetPort=8080))
 ret['aws-load-balancer-backend-protocol'] = 'https'
 ret['aws-load-balancer-ssl-cert'] = 'arn:aws:iam::12345:server-certificate/myapp.certificate'
-ret.namespace = test_ns
+ret.set_namespace('myapp')
 output(ret)

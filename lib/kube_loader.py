@@ -13,3 +13,4 @@ if sys.version_info[0] == 2:
 else:
     import kube_objs.__init__
 kube_objs._loader()
+import ns_registry
