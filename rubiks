@@ -13,16 +13,16 @@ repobase = os.path.realpath(os.path.split(sys.modules[__name__].__file__)[0])
 
 sys.path.insert(0, os.path.join(repobase, 'lib'))
 sys.path.insert(0, os.path.join(repobase, 'vendor/{}/lib'.format(sys.version_info[0])))
+sys.path.insert(0, os.path.join(repobase, 'lib/{}'.format(sys.version_info[0])))
 
 # === real program starts here ===
 
-import yaml
 from kube_yaml import *
-import repository
+import rubiks_repository
+import load_python
 
-r = repository.Repository()
-print(r.basepath)
-print(r.status.modifications)
+r = rubiks_repository.RubiksRepository()
+coll = load_python.PythonFileCollection(r)
 
 with open(os.path.join(repobase, 'Makefile')) as f:
     mf_text = f.read().replace('\t', '    ')
