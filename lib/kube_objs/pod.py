@@ -16,10 +16,13 @@ class Memory(String):
     def do_check(self, value, path):
         if not String.do_check(self, value, path):
             return False
-        if not value.endswith('ki', 'Mi', 'Gi'):
-            return False
+        if not value.endswith('ki') and not value.endswith('Mi') and not value.endswith('Gi'):
+            if not value.endswith('k') and not value.endswith('M') and not value.endswith('G'):
+                return False
         try:
-            return float(value[:-2].strip()) >= 0.0
+            if value.endswith('i'):
+                return float(value[:-2].strip()) >= 0.0
+            return float(value[:-1].strip()) >= 0.0
         except ValueError:
             return False
 

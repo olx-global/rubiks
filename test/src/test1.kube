@@ -74,3 +74,10 @@ with namespace('myapp'):
     ret['aws-load-balancer-backend-protocol'] = 'https'
     ret['aws-load-balancer-ssl-cert'] = 'arn:aws:iam::12345:server-certificate/myapp.certificate'
     output(ret)
+
+    ret = PersistentVolumeClaim('data', accessModes=['ReadWriteOnce'], request='500Mi')
+    ret.annotations = {
+        'volume.beta.kubernetes.io/storage-class': 'slow',
+        'volume.beta.kubernetes.io/storage-provisioner': 'kubernetes.io/aws-ebs',
+        }
+    output(ret)

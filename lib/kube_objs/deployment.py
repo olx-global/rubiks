@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 from kube_obj import KubeObj, KubeSubObj, order_dict
 from kube_types import *
 from .pod import *
+from .selectors import *
 
 
 class BaseUpdateStrategy(KubeSubObj):
@@ -27,20 +28,6 @@ class RollingUpdateStrategy(BaseUpdateStrategy):
 
     def render(self):
         return {'rollingUpdate': self.renderer(), 'type': 'RollingUpdate'}
-
-
-class BaseSelector(KubeSubObj):
-    pass
-
-
-class MatchLabelsSelector(BaseSelector):
-    _defaults = {'matchLabels': {}}
-    _types = {'matchLabels': Map(String, String)}
-
-    def render(self):
-        if len(self._data['matchLabels']) == 0:
-            return None
-        return {'matchLabels': self._data['matchLabels']}
 
 
 class Deployment(KubeObj):
