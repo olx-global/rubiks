@@ -25,6 +25,10 @@ def order_dict(src, order):
     return ret
 
 
+class KubeObjNoNamespace(Exception):
+    pass
+
+
 class KubeTypeUnresolvable(Exception):
     pass
 
@@ -39,6 +43,8 @@ class KubeBaseObj(object):
         if hasattr(self, 'identifier') and len(args) > 0 and self.identifier not in kwargs:
             kwargs[self.identifier] = args[0]
         self._data = self._find_defaults(False)
+
+        self.namespace = None
 
         if self.has_metadata:
             self.annotations = {}
@@ -80,6 +86,9 @@ class KubeBaseObj(object):
                 ret[self.identifier] = ''
         return ret
 
+    def check_namespace(self):
+        return True
+
     def validate(self, path=None):
         def basic_validation(typ):
             if isinstance(typ, KubeType):
@@ -112,6 +121,9 @@ class KubeBaseObj(object):
             Map(String, String).check(self.labels, '{}.(labels)'.format(path))
         if hasattr(self, 'annotations'):
             Map(String, String).check(self.annotations, '{}.(annotations)'.format(path))
+
+        if not self.check_namespace():
+            raise KubeObjNoNamespace("No namespace attached to object at {}".format(path))
 
         for k in types:
             t = basic_validation(types[k])
@@ -260,6 +272,12 @@ class KubeBaseObj(object):
 class KubeObj(KubeBaseObj):
     identifier = 'name'
     has_metadata = True
+
+    def check_namespace(self):
+        if isinstance(self.namespace, KubeObj) and hasattr(self.namespace, 'kind') and \
+                self.namespace.kind == 'Namespace':
+            return True
+        return False
 
     def early_init(self, *args, **kwargs):
         if not hasattr(self, 'apiVersion') or not hasattr(self, 'kind') or not hasattr(self, 'identifier'):

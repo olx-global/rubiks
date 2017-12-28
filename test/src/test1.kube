@@ -1,23 +1,28 @@
 import os
 import ns
 
-output(Namespace('test-ns'))
+test_ns = Namespace('test-ns')
+output(test_ns)
 
-output(DockerCredentials('docker-pull-secrets',
-                         dockers={
-                             'mydocker.hub': {
-                                 'username': 'foo',
-                                 'email': 'foo@example.com',
-                                 'password': 'password',
-                                 'auth': 'Zm9vOnBhc3N3b3Jk',
-                                 },
-                             }))
+ret = DockerCredentials('docker-pull-secrets',
+                        dockers={
+                            'mydocker.hub': {
+                                'username': 'foo',
+                                'email': 'foo@example.com',
+                                'password': 'password',
+                                'auth': 'Zm9vOnBhc3N3b3Jk',
+                                },
+                            })
+ret.namespace = test_ns
+output(ret)
 
 with open(os.path.join(repobase, 'Makefile')) as f:
     mf_text = f.read().replace('\t', '    ')
 
-output(ConfigMap('test-config',
-                 files={'fake-makefile': mf_text}))
+ret = ConfigMap('test-config',
+                files={'fake-makefile': mf_text})
+ret.namespace = test_ns
+output(ret)
 
 ret = DaemonSet('fluentd-elasticsearch')
 ret.labels.update({'tier': 'monitoring', 'app': ret.name, 'version': 'v1'})
@@ -41,4 +46,5 @@ ctr.volumeMounts.extend((
     ContainerVolumeMountSpec(name=ret.pod_template.volumes[2].name, path='/etc/td-agent'),
     ))
 ctr.resources.requests.cpu = 0.5
+ret.namespace = test_ns
 output(ret)

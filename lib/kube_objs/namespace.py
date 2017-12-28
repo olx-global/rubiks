@@ -12,5 +12,10 @@ class Namespace(KubeObj):
     kind = 'Namespace'
     kubectltype = 'ns'
 
+    def check_namespace(self):
+        return True
+
     def render(self):
+        if self.name in ('kube-system', 'default'):
+            return None
         return {'metadata': {'name': self.name, 'labels': {'name': self.name}}}
