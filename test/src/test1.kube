@@ -1,78 +1,76 @@
 import os
 import ns
 
-ret = DockerCredentials('docker-pull-secrets',
-                        dockers={
-                            'mydocker.hub': {
-                                'username': 'foo',
-                                'email': 'foo@example.com',
-                                'password': 'password',
-                                'auth': 'Zm9vOnBhc3N3b3Jk',
-                                },
-                            })
-ret.set_namespace('test-ns')
-output(ret)
+with namespace('test-ns'):
+    ret = DockerCredentials('docker-pull-secrets',
+                            dockers={
+                                'mydocker.hub': {
+                                    'username': 'foo',
+                                    'email': 'foo@example.com',
+                                    'password': 'password',
+                                    'auth': 'Zm9vOnBhc3N3b3Jk',
+                                    },
+                                })
+    output(ret)
 
-with open(os.path.join(repobase, 'Makefile')) as f:
-    mf_text = f.read().replace('\t', '    ')
+    with open(os.path.join(repobase, 'Makefile')) as f:
+        mf_text = f.read().replace('\t', '    ')
 
-ret = ConfigMap('test-config',
-                files={'fake-makefile': mf_text})
-ret.set_namespace('test-ns')
-output(ret)
+    ret = ConfigMap('test-config',
+                    files={'fake-makefile': mf_text})
+    output(ret)
 
-ret = DaemonSet('fluentd-elasticsearch')
-ret.set_namespace('kube-system')
-ret.labels.update({'tier': 'monitoring', 'app': ret.name, 'version': 'v1'})
-ret.pod_template.name = 'fluentd'
-ret.pod_template.volumes.extend((
-    PodVolumeHostSpec(name='var-log', path='/var/log'),
-    PodVolumeHostSpec(name='var-lib-docker-containers', path='/var/lib/docker/containers'),
-    PodVolumeConfigMapSpec(name='config-vol', map_name='fluentd-config'),
-    ))
-ret.pod_template.containers.append(ContainerSpec('fluentd-elasticsearch',
-                                                 command=[
-                                                     'bash',
-                                                     '-c',
-                                                     'td-agent-gem install --no-document fluent-plugin-geoip-filter -v 0.3.0; exec /usr/sbin/td-agent'],
-                                                 image='gcr.io/google_containers/fluentd-elasticsearch:1.20',
-                                                 ))
-ctr = ret.pod_template.containers[-1]
-ctr.volumeMounts.extend((
-    ContainerVolumeMountSpec(name=ret.pod_template.volumes[0].name, path=ret.pod_template.volumes[0].path),
-    ContainerVolumeMountSpec(name=ret.pod_template.volumes[1].name, path=ret.pod_template.volumes[1].path, readOnly=True),
-    ContainerVolumeMountSpec(name=ret.pod_template.volumes[2].name, path='/etc/td-agent'),
-    ))
-ctr.resources.requests.cpu = 0.5
-output(ret)
+with namespace('kube-system'):
+    ret = DaemonSet('fluentd-elasticsearch')
+    ret.labels.update({'tier': 'monitoring', 'app': ret.name, 'version': 'v1'})
+    ret.pod_template.name = 'fluentd'
+    ret.pod_template.volumes.extend((
+        PodVolumeHostSpec(name='var-log', path='/var/log'),
+        PodVolumeHostSpec(name='var-lib-docker-containers', path='/var/lib/docker/containers'),
+        PodVolumeConfigMapSpec(name='config-vol', map_name='fluentd-config'),
+        ))
+    ret.pod_template.containers.append(ContainerSpec('fluentd-elasticsearch',
+                                                     command=[
+                                                         'bash',
+                                                         '-c',
+                                                         'td-agent-gem install --no-document fluent-plugin-geoip-filter -v 0.3.0; exec /usr/sbin/td-agent'],
+                                                     image='gcr.io/google_containers/fluentd-elasticsearch:1.20',
+                                                     ))
+    ctr = ret.pod_template.containers[-1]
+    ctr.volumeMounts.extend((
+        ContainerVolumeMountSpec(name=ret.pod_template.volumes[0].name, path=ret.pod_template.volumes[0].path),
+        ContainerVolumeMountSpec(name=ret.pod_template.volumes[1].name, path=ret.pod_template.volumes[1].path, readOnly=True),
+        ContainerVolumeMountSpec(name=ret.pod_template.volumes[2].name, path='/etc/td-agent'),
+        ))
+    ctr.resources.requests.cpu = 0.5
+    output(ret)
 
-labels = {'app': 'myapp', 'deployenv': 'production'}
-ret = Deployment('myapp', replicas=5, minReadySeconds=10, revisionHistoryLimit=5,
-                 selector=MatchLabelsSelector(matchLabels=labels),
-                 strategy=RollingUpdateStrategy(maxSurge=1, maxUnavailable=0),
-                 )
-ret.labels.update(labels)
-ret.pod_template.labels.update(labels)
-ret.pod_template.annotations.update({
-    'prometheus.io/path': '/prometheus',
-    'prometheus.io/port': '8081',
-    'prometheus.io/scrape': 'true',
-    'prometheus.io/jmx.path': '/metrics',
-    'prometheus.io/jmx.port': '5555',
-    'prometheus.io/jmx.scrape': 'true',
-    })
-ret.pod_template.containers.append(ContainerSpec('myapp', image='dockerhub.internal/apps/myapp:latest',
-                                                 command=['java', '-server', '-jar', '-Dmyapp.threads=100', '/myapp.jar'],
-                                                 ))
-ctr = ret.pod_template.containers[-1]
-ctr.env.append(ContainerEnvSpec(name='MANAGEMENT_PORT', value='8081'))
-ctr.env.append(ContainerEnvSecretSpec(name='MYAPP_MAGIC_SECRET', secret_name='myapp', key='magic_token'))
-ret.set_namespace('myapp')
-output(ret)
+with namespace('myapp'):
+    labels = {'app': 'myapp', 'deployenv': 'production'}
+    ret = Deployment('myapp', replicas=5, minReadySeconds=10, revisionHistoryLimit=5,
+                     selector=MatchLabelsSelector(matchLabels=labels),
+                     strategy=RollingUpdateStrategy(maxSurge=1, maxUnavailable=0),
+                     )
+    ret.labels.update(labels)
+    ret.pod_template.labels.update(labels)
+    ret.pod_template.annotations.update({
+        'prometheus.io/path': '/prometheus',
+        'prometheus.io/port': '8081',
+        'prometheus.io/scrape': 'true',
+        'prometheus.io/jmx.path': '/metrics',
+        'prometheus.io/jmx.port': '5555',
+        'prometheus.io/jmx.scrape': 'true',
+        })
+    ret.pod_template.containers.append(ContainerSpec('myapp', image='dockerhub.internal/apps/myapp:latest',
+                                                     command=['java', '-server', '-jar', '-Dmyapp.threads=100', '/myapp.jar'],
+                                                     ))
+    ctr = ret.pod_template.containers[-1]
+    ctr.env.append(ContainerEnvSpec(name='MANAGEMENT_PORT', value='8081'))
+    ctr.env.append(ContainerEnvSecretSpec(name='MYAPP_MAGIC_SECRET', secret_name='myapp', key='magic_token'))
+    output(ret)
 
-ret = LoadBalancerService(name='myapp', selector=labels)
-ret.ports.append(ServicePort(name='https', protocol='TCP', port=443, targetPort=8080))
-ret['aws-load-balancer-backend-protocol'] = 'https'
-ret['aws-load-balancer-ssl-cert'] = 'arn:aws:iam::12345:server-certificate/myapp.certificate'
-ret.set_namespace('myapp')
-output(ret)
+    ret = LoadBalancerService(name='myapp', selector=labels)
+    ret.ports.append(ServicePort(name='https', protocol='TCP', port=443, targetPort=8080))
+    ret['aws-load-balancer-backend-protocol'] = 'https'
+    ret['aws-load-balancer-ssl-cert'] = 'arn:aws:iam::12345:server-certificate/myapp.certificate'
+    output(ret)

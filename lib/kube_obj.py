@@ -34,6 +34,7 @@ class KubeTypeUnresolvable(Exception):
 
 
 class KubeBaseObj(object):
+    _default_ns = 'default'
     _defaults = {}
     _types = {}
     has_metadata = False
@@ -45,7 +46,7 @@ class KubeBaseObj(object):
         self._data = self._find_defaults(False)
 
         self.namespace = None
-        self.set_namespace('default')
+        self.set_namespace(KubeBaseObj._default_ns)
 
         if self.has_metadata:
             self.annotations = {}

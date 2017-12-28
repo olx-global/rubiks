@@ -146,17 +146,29 @@ class PythonFile(object):
             self.debug(3, '{}: import_python({}, ...)'.format(self.path.src_rel_path, name))
             return self.collection().import_python(self, name, exports)
 
-        def get_ns(name):
-            return NamespaceRegistry.get_ns(name)
-
         def output(val):
             return self.collection().add_output(val)
+
+        def namespace(ns):
+            class namespace_wrapper(object):
+                def __init__(self, ns):
+                    self.ns = ns
+
+                def __enter__(self):
+                    self.save_ns = KubeBaseObj._default_ns
+                    KubeBaseObj._default_ns = self.ns
+
+                def __exit__(self, etyp, eval, etb):
+                    KubeBaseObj._default_ns = self.save_ns
+                    return False
+
+            return namespace_wrapper(ns)
 
         ret = {
             'repobase': self.collection().repository.basepath,
 
             'import_python': import_python,
-            'get_ns': get_ns,
+            'namespace': namespace,
 
             'output': output,
             }
