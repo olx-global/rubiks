@@ -40,7 +40,14 @@ class PythonFile(object):
 
     def do_compile(self):
         self.debug(2, 'compiling python: {} ({})'.format(self.path.src_rel_path, self.path.full_path))
+        savepath = sys.path
         try:
+            newpath = []
+            if hasattr(self.collection().repository, 'pythonpath'):
+                newpath.extend(self.collection().repository.pythonpath)
+            newpath.extend(sys.path)
+            sys.path = newpath
+
             with open(self.path.full_path) as f:
                 src = f.read()
 
@@ -56,6 +63,8 @@ class PythonFile(object):
                 raise
             raise loader.LoaderCompileException('Got exception while loading/compiling {}: {}: {}'.format(
                                                 self.path.src_rel_path, e.__class__.__name__, str(e)))
+        finally:
+            sys.path = savepath
 
     def get_symnames(self):
         return self.module.__dict__.keys()

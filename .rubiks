@@ -1,3 +1,4 @@
 [layout]
 sources = test/src
 outputs = test/out
+pythonpath = test/lib

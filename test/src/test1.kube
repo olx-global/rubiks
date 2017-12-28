@@ -1,4 +1,7 @@
 import os
+import ns
+
+ns.NewNS()
 
 with open(os.path.join(repobase, 'Makefile')) as f:
     mf_text = f.read().replace('\t', '    ')

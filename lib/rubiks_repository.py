@@ -17,6 +17,7 @@ import repository
 class RubiksRepository(repository.Repository):
     def __init__(self):
         repository.Repository.__init__(self)
+        self.pythonpath = []
         if os.path.exists(os.path.join(self.basepath, '.rubiks')):
             m_cp = ConfigParser()
             m_cp.read(os.path.join(self.basepath, '.rubiks'))
@@ -26,3 +27,6 @@ class RubiksRepository(repository.Repository):
                     self.sources = m_cp.get('layout', 'sources', raw=True)
                 if m_cp.has_option('layout', 'outputs'):
                     self.outputs = m_cp.get('layout', 'outputs', raw=True)
+                if m_cp.has_option('layout', 'pythonpath'):
+                    self.pythonpath = list(map(lambda x: os.path.join(self.basepath, x.strip()),
+                                               m_cp.get('layout', 'pythonpath', raw=True).split(',')))
