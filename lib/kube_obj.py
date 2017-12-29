@@ -13,6 +13,15 @@ from kube_types import *
 from user_error import UserError
 
 
+def _rec_update_objs(obj):
+    for k in obj._data:
+        if isinstance(obj._data[k], KubeBaseObj):
+            obj._data[k]._caller_file = obj._caller_file
+            obj._data[k]._caller_line = obj._caller_line
+            obj._data[k]._caller_fn = obj._caller_fn
+            _rec_update_objs(obj._data[k])
+
+
 def order_dict(src, order):
     ret = OrderedDict()
     for k in order:
@@ -86,6 +95,44 @@ class KubeBaseObj(object):
                 if self._data[k] is None:
                     self._data[k] = {}
                 self._data[k].update(kwargs[k])
+
+        _rec_update_objs(self)
+
+    def clone(self, *args, **kwargs):
+        ret = self._clone()
+        ret._caller_file, ret._caller_line, ret._caller_fn = traceback.extract_stack(limit=2)[0][0:3]
+        _rec_update_objs(self)
+
+        if hasattr(self, 'identifier') and len(args) > 0 and self.identifier not in kwargs:
+            kwargs[self.identifier] = args[0]
+
+        for k in kwargs:
+            if k not in self._data:
+                raise UserError(TypeError("{} is not a valid argument for {} constructor".format(
+                                          k, self.__class__.__name__)))
+
+            if not isinstance(kwargs[k], (list, dict)):
+                self._data[k] = kwargs[k]
+            elif isinstance(kwargs[k], list):
+                self._data[k] = []
+                self._data[k].extend(kwargs[k])
+            else:
+                self._data[k].update(kwargs[k])
+
+    def _clone(self):
+        ret = self.__class__()
+
+        for k in self._data:
+            if isinstance(self._data[k], KubeBaseObj):
+                ret._data[k] = self._data[k]._clone()
+            else:
+                ret._data[k] = copy.deepcopy(self._data[k])
+
+        if self.has_metadata:
+            ret.annotations = copy.deepcopy(self.annotations)
+            ret.labels = copy.deepcopy(self.labels)
+
+        return ret
 
     @classmethod
     def _find_defaults(cls, clsmap):
