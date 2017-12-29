@@ -414,8 +414,11 @@ class KubeBaseObj(object):
                 elif len(self.annotations) != 0:
                     obj['metadata']['annotations'] = copy.copy(self.annotations)
 
+                if hasattr(self, 'namespace') and self.namespace is not None:
+                    obj['metadata']['namespace'] = self.namespace.name
+
                 if hasattr(self, 'identifier'):
-                    obj['metadata'] = order_dict(obj['metadata'], (self.identifier, 'annotations', 'labels'))
+                    obj['metadata'] = order_dict(obj['metadata'], (self.identifier, 'namespace', 'annotations', 'labels'))
                 else:
                     obj['metadata'] = order_dict(obj['metadata'], ('annotations', 'labels'))
 
