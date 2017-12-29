@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 from kube_obj import KubeObj, order_dict
 from kube_types import *
 
+
 class StorageClass(KubeObj):
     apiVersion = 'storage.k8s.io/v1beta1'
     kind = 'StorageClass'

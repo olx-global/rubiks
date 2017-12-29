@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 from kube_obj import KubeObj
 from kube_types import *
 
+
 class ConfigMap(KubeObj):
     apiVersion = 'v1'
     kind = 'ConfigMap'

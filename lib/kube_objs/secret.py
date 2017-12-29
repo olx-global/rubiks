@@ -11,6 +11,7 @@ from kube_obj import KubeObj
 from kube_types import *
 from kube_vartypes import Base64, JSON
 
+
 class Secret(KubeObj):
     apiVersion = 'v1'
     kind = 'Secret'
@@ -33,6 +34,7 @@ class Secret(KubeObj):
         for s in self._data['secrets']:
             secrets[s] = Base64(self._data['secrets'][s])
         return {'metadata': {'name': self.name}, 'type': self._data['type'], 'data': secrets}
+
 
 class DockerCredentials(Secret):
     _defaults = {
@@ -59,4 +61,24 @@ class DockerCredentials(Secret):
                 ret[k]['auth'] = Base64(v['username'] + ':' + v['password'])
         self._data['secrets']['.dockercfg'] = JSON(ret)
 
+        return Secret.render(self)
+
+
+class TLSCredentials(Secret):
+    _defaults = {
+        'type': 'kubernetes.io/tls',
+        'secrets': {'tls.crt': '', 'tls.key': '', 'tls.pem': ''},
+        'tls_cert': '',
+        'tls_key': '',
+    }
+
+    _types = {
+        'tls_cert': String,
+        'tls_key': String,
+        }
+
+    def render(self):
+        self._data['secrets'] = {'tls.crt': self._data['tls_cert'], 'tls.key': self._data['tls_key']}
+        self._data['secrets']['tls.pem'] = \
+            self._data['tls_cert'] + '\n' + self._data['tls_key'] + '\n'
         return Secret.render(self)

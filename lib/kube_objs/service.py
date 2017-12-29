@@ -9,6 +9,7 @@ from collections import OrderedDict
 from kube_obj import KubeObj, KubeSubObj, order_dict
 from kube_types import *
 
+
 class ServicePort(KubeSubObj):
     _defaults = {
         'name': None,
@@ -27,6 +28,7 @@ class ServicePort(KubeSubObj):
     def render(self):
         return self.renderer(order=('name', 'protocol', 'port'))
 
+
 class Service(KubeObj):
     apiVersion = 'v1'
     kind = 'Service'
@@ -44,6 +46,7 @@ class Service(KubeObj):
         'selector': NonEmpty(Map(String, String)),
         }
 
+
 class ClusterIPService(Service):
     _defaults = {
         'clusterIP': None,
@@ -59,6 +62,7 @@ class ClusterIPService(Service):
         spec = OrderedDict(type='ClusterIP')
         spec.update(ret)
         return {'metadata': {'name': self._data['name']}, 'spec': spec}
+
 
 class LoadBalancerService(Service):
     _defaults = {

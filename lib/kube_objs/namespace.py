@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 
 from kube_obj import KubeObj
 
+
 class Namespace(KubeObj):
     apiVersion = 'v1'
     kind = 'Namespace'

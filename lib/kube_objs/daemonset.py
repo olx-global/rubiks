@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 from kube_obj import KubeObj, order_dict
 from .pod import *
 
+
 class DaemonSet(KubeObj):
     apiVersion = 'extensions/v1beta1'
     kind = 'DaemonSet'
