@@ -101,67 +101,91 @@ class KubeBaseObj(object):
 
     @classmethod
     def resolve_types(cls):
-        def basic_validation(typ):
-            if isinstance(typ, KubeType):
-                return typ
-            elif isinstance(typ, (type, KubeBaseObj)):
-                return KubeType.construct_arg(typ)
-            elif Integer().do_check(typ, None):
-                if typ > 0:
-                    return Positive(NonZero(Integer))
-                elif typ < 0:
-                    return NonZero(Integer)
-                return Integer()
-            elif Number().do_check(typ, None):
-                if typ > 0:
-                    return Positive(Number)
-                return Number()
-            elif Boolean().do_check(typ, None):
-                return Boolean()
-            elif String().do_check(typ, None):
-                return NonEmpty(String)
-            return None
+        if not hasattr(cls, '_resolved_types'):
+            def basic_validation(typ):
+                if isinstance(typ, KubeType):
+                    return typ
+                elif isinstance(typ, (type, KubeBaseObj)):
+                    return KubeType.construct_arg(typ)
+                elif Integer().do_check(typ, None):
+                    if typ > 0:
+                        return Positive(NonZero(Integer))
+                    elif typ < 0:
+                        return NonZero(Integer)
+                    return Integer()
+                elif Number().do_check(typ, None):
+                    if typ > 0:
+                        return Positive(Number)
+                    return Number()
+                elif Boolean().do_check(typ, None):
+                    return Boolean()
+                elif String().do_check(typ, None):
+                    return NonEmpty(String)
+                return None
 
-        types = cls._find_defaults(False)
-        types.update(cls._find_defaults(True))
+            types = cls._find_defaults(False)
+            types.update(cls._find_defaults(True))
 
-        for k in types:
-            t = basic_validation(types[k])
-            if t is not None:
-                types[k] = t
-            elif isinstance(types[k], (list, tuple)):
-                if len(types[k]) > 0:
-                    t = basic_validation(types[k][0])
-                    if t is not None:
-                        types[k] = NonEmpty(List(t))
-            elif isinstance(types[k], dict):
-                if len(types[k]) > 0:
-                    kk = tuple(types[k].keys())[0]
-                    vv = types[k][kk]
-                    tk = basic_validation(kk)
-                    tv = basic_validation(vv)
-                    if tk is not None and tv is not None:
-                        types[k] = NonEmpty(Dict(tk, tv))
+            for k in types:
+                t = basic_validation(types[k])
+                if t is not None:
+                    types[k] = t
+                elif isinstance(types[k], (list, tuple)):
+                    if len(types[k]) > 0:
+                        t = basic_validation(types[k][0])
+                        if t is not None:
+                            types[k] = NonEmpty(List(t))
+                elif isinstance(types[k], dict):
+                    if len(types[k]) > 0:
+                        kk = tuple(types[k].keys())[0]
+                        vv = types[k][kk]
+                        tk = basic_validation(kk)
+                        tv = basic_validation(vv)
+                        if tk is not None and tv is not None:
+                            types[k] = NonEmpty(Dict(tk, tv))
 
-            if not isinstance(types[k], KubeType):
-                raise KubeTypeUnresolvable(
-                    "Couldn't resolve (from {}) {} into a default type".format(k, repr(types[k])))
+                if not isinstance(types[k], KubeType):
+                    raise KubeTypeUnresolvable(
+                        "Couldn't resolve (from {}) {} into a default type".format(k, repr(types[k])))
 
-        return types
+            cls._resolved_types = types
+
+        return cls._resolved_types
 
     @classmethod
-    def get_help(cls):
+    def is_abstract_type(cls):
+        base = KubeBaseObj.render
+        this = cls.render
+        if hasattr(base, '__func__') and hasattr(this, '__func__'):
+            # python 2.7
+            return this.__func__ is base.__func__
+        # python 3
+        return this is base
+
+    @classmethod
+    def get_subclasses(cls, non_abstract=True, include_self=False):
         def _rec_subclasses(kls):
             ret = []
             subclasses = kls.__subclasses__()
-
             if len(subclasses) > 0:
-                ret.extend(subclasses)
+                if non_abstract:
+                    ret.extend(filter(lambda x: not x.is_abstract_type(), subclasses))
+                else:
+                    ret.extend(subclasses)
+
                 for c in subclasses:
                     ret.extend(_rec_subclasses(c))
 
             return ret
 
+        ret = _rec_subclasses(cls)
+        if include_self and not(non_abstract and cls.is_abstract_type()):
+            ret.insert(0, cls)
+
+        return ret
+
+    @classmethod
+    def get_help(cls):
         def _rec_superclasses(kls):
             ret = []
             superclasses = list(filter(lambda x: x is not KubeBaseObj and x is not KubeSubObj and
@@ -175,22 +199,13 @@ class KubeBaseObj(object):
 
             return ret
 
-        def _has_render():
-            base = KubeBaseObj.render
-            this = cls.render
-            if hasattr(base, '__func__') and hasattr(this, '__func__'):
-                # python 2.7
-                return this.__func__ is not base.__func__
-            # python 3
-            return this is not base
-
-        subclasses = list(map(lambda x: x.__name__, _rec_subclasses(cls)))
+        subclasses = list(map(lambda x: x.__name__, cls.get_subclasses(non_abstract=False, include_self=False)))
         superclasses = list(map(lambda x: x.__name__, _rec_superclasses(cls)))
 
         types = cls.resolve_types()
 
         abstract = ''
-        if not _has_render():
+        if cls.is_abstract_type():
             abstract = ' (abstract type)'
 
         identifier = None
@@ -246,6 +261,82 @@ class KubeBaseObj(object):
 
     def render(self):
         return None
+
+    def get_obj(self, prop, *args, **kwargs):
+        types = self.__class__.resolve_types()
+        fmt = (prop, self.__class__.__name__)
+        if prop not in types:
+            raise KeyError("No such property '{}' on {}".format(*fmt))
+
+        typ = types[prop]
+
+        actual_type = typ.original_type()
+        if actual_type is None:
+            raise KeyError("Property '{}' can't be auto-constructed in {}".format(*fmt))
+
+        rtype = None
+        if isinstance(actual_type, list):
+            actual_type = actual_type[0]
+            rtype = 'list'
+        elif isinstance(actual_type, dict):
+            actual_type = actual_type['value']
+            rtype = 'dict'
+        else:
+            rtype = 'obj'
+
+        if not isinstance(actual_type, type):
+            raise TypeError("Unexpected type isn't a type is actually a {} for property '{}' in {}".
+                            format(actual_type.__class__.__name__, *fmt))
+
+        if not any(map(lambda x: x is actual_type,
+                       KubeBaseObj.get_subclasses(non_abstract=False, include_self=False))):
+            raise TypeError("Unexpected type {} for property '{}' in {}, must be a subclass of KubeBaseObj".
+                            format(actual_type.__name__, *fmt))
+
+        if len(args) > 0 and isinstance(args[0], type):
+            if any(map(lambda x: x is args[0],
+                       actual_type.get_subclasses(non_abstract=True, include_self=True))):
+                actual_type = args[0]
+                args = args[1:]
+            else:
+                raise TypeError(("Unexpected type as first argument for property '{}' in {}, must be subclass " +
+                                 "of {}. Valid types are: {}").
+                                format(prop, self.__class__.__name__, actual_type.__name__,
+                                       ", ".join(map(lambda x: x.__name__,
+                                                     actual_type.get_subclasses(non_abstract=True, include_self=True)))))
+
+        if actual_type.is_abstract_type():
+            raise TypeError("Can't construct {} for '{}' in {}, you probably want one of: {}".
+                            format(actual_type.__name__, prop, self.__class__.__name__,
+                                   ", ".join(map(lambda x: x.__name__,
+                                                 actual_type.get_subclasses(non_abstract=True)))))
+
+        if rtype == 'dict':
+            if len(args) == 0:
+                raise ValueError("Must supply key for newly constructed property '{}' on {}".format(*fmt))
+            dkey = args[0]
+            args = args[1:]
+
+        result = actual_type(*args, **kwargs)
+
+        new = result
+        if rtype == 'list':
+            new = [result]
+        elif rtype == 'dict':
+            new = {dkey: result}
+
+        if self._data[prop] is None or rtype == 'obj':
+            self._data[prop] = new
+            return result
+
+        if rtype == 'list' and isinstance(self._data[prop], list):
+            self._data[prop].extend(new)
+        elif rtype == 'dict' and isinstance(self._data[prop], dict):
+            self._data[prop].update(new)
+        else:
+            raise TypeError("Expecting {} or None for property '{}' on {}".format(rtype, *fmt))
+
+        return result
 
     def renderer(self, zlen_ok=(), order=(), mapping=None, return_none=False):
         ret = copy.deepcopy(self._data)
@@ -343,7 +434,17 @@ class KubeBaseObj(object):
     def __getattr__(self, k):
         if k != '_data' and k in self._data:
             return self._data[k]
-        return object.__getattr__(self, k)
+        if k.startswith('new_') and k[4:] in self._data:
+            def get_prop(*args, **kwargs):
+                return self.get_obj(k[4:], *args, **kwargs)
+            get_prop.__name__ = k
+            return get_prop
+        elif k.startswith('new_') and k[4:] + 's' in self._data:
+            def get_prop(*args, **kwargs):
+                return self.get_obj(k[4:] + 's', *args, **kwargs)
+            get_prop.__name__ = k
+            return get_prop
+        raise AttributeError("No such attribute {}".format(k))
 
     def __setattr__(self, k, v):
         if k in ('_data',):

@@ -24,11 +24,9 @@ with namespace('kube-system'):
     ret = DaemonSet('fluentd-elasticsearch')
     ret.labels.update({'tier': 'monitoring', 'app': ret.name, 'version': 'v1'})
     ret.pod_template.name = 'fluentd'
-    ret.pod_template.volumes.extend((
-        PodVolumeHostSpec(name='var-log', path='/var/log'),
-        PodVolumeHostSpec(name='var-lib-docker-containers', path='/var/lib/docker/containers'),
-        PodVolumeConfigMapSpec(name='config-vol', map_name='fluentd-config'),
-        ))
+    ret.pod_template.new_volume(PodVolumeHostSpec, name='var-log', path='/var/log')
+    ret.pod_template.new_volume(PodVolumeHostSpec, name='var-lib-docker-containers', path='/var/lib/docker/containers')
+    ret.pod_template.new_volume(PodVolumeConfigMapSpec, name='config-vol', map_name='fluentd-config')
     ret.pod_template.containers.append(ContainerSpec('fluentd-elasticsearch',
                                                      command=[
                                                          'bash',
@@ -37,11 +35,9 @@ with namespace('kube-system'):
                                                      image='gcr.io/google_containers/fluentd-elasticsearch:1.20',
                                                      ))
     ctr = ret.pod_template.containers[-1]
-    ctr.volumeMounts.extend((
-        ContainerVolumeMountSpec(name=ret.pod_template.volumes[0].name, path=ret.pod_template.volumes[0].path),
-        ContainerVolumeMountSpec(name=ret.pod_template.volumes[1].name, path=ret.pod_template.volumes[1].path, readOnly=True),
-        ContainerVolumeMountSpec(name=ret.pod_template.volumes[2].name, path='/etc/td-agent'),
-        ))
+    ctr.new_volumeMount(name=ret.pod_template.volumes[0].name, path=ret.pod_template.volumes[0].path)
+    ctr.new_volumeMount(name=ret.pod_template.volumes[1].name, path=ret.pod_template.volumes[1].path, readOnly=True)
+    ctr.new_volumeMount(name=ret.pod_template.volumes[2].name, path='/etc/td-agent')
     ctr.resources.requests.cpu = 0.5
     output(ret)
 

@@ -146,6 +146,10 @@ class ContainerProbeBaseSpec(KubeSubObj):
         'failureThreshold': Positive(NonZero(Integer)),
         }
 
+    @classmethod
+    def is_abstract_type(cls):
+        return hasattr(cls, 'render_check')
+
     def render(self):
         ret = order_dict({
             'initialDelaySeconds': self._data['initialDelaySeconds'],

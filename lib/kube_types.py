@@ -48,6 +48,11 @@ class KubeType(object):
 
         return ret
 
+    def original_type(self):
+        if self.wrapper:
+            return self.wrap.original_type()
+        return None
+
     def name(self):
         if self.wrapper:
             return '{}<{}>'.format(self.__class__.__name__, self.wrap.name())
@@ -75,6 +80,9 @@ class KubeType(object):
 class Object(KubeType):
     def __init__(self, cls):
         self.cls = cls
+
+    def original_type(self):
+        return self.cls
 
     def name(self):
         return self.cls.__name__
@@ -217,6 +225,12 @@ class NonEmpty(KubeType):
 class List(KubeType):
     wrapper = True
 
+    def original_type(self):
+        t = self.wrap.original_type()
+        if t is not None:
+            return [t]
+        return None
+
     def do_check(self, value, path):
         if not isinstance(value, (list, tuple)):
             return False
@@ -237,6 +251,12 @@ class Map(KubeType):
 
     def name(self):
         return '{}<{}, {}>'.format(self.__class__.__name__, self.key.name(), self.value.name())
+
+    def original_type(self):
+        t = self.value.original_type()
+        if t is not None:
+            return {'value': t}
+        return None
 
     def check(self, value, path=None):
         if not isinstance(value, dict):
