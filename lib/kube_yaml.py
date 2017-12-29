@@ -8,62 +8,126 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 import sys
 import yaml
+from var_types import VarEntity
 
 __all__ = ['quoted', 'literal', 'yaml_safe_dump']
 
+# This file is very magical, allowing for a few deep dives in the inner workings of the pyyaml
+# and in particular, allowing us to do proper lazy evaluation of our VarEntities
+
+class FakeStringIO(object):
+    def __init__(self):
+        self.t = ''
+
+    def write(self, text):
+        self.t = self.t + text
+
+    def flush(self):
+        pass
+
+    def get_value(self):
+        return self.t
+
+
 class BlockRepresenter(yaml.representer.BaseRepresenter):
     def represent_scalar(self, tag, value, style=None):
-        if style is None:
+        if style is None and not isinstance(value, VarEntity):
             for c in u"\u000a\u000d\u001c\u001d\u001e\u0085\u2028\u2029":
                 if c in value:
                     style = '|'
         return yaml.representer.BaseRepresenter.represent_scalar(self, tag, value, style=style)
 
-class BaseDumper(BlockRepresenter, yaml.dumper.BaseDumper):
+class VarEntitySerializer(yaml.serializer.Serializer):
+    def serialize_node(self, node, parent, index):
+        if node not in self.serialized_nodes and isinstance(node, yaml.nodes.ScalarNode) and \
+                isinstance(node.value, VarEntity):
+            self.serialized_nodes[node] = True
+            self.descend_resolver(parent, index)
+            self.emit(yaml.events.ScalarEvent(self.anchors[node], 'tag:yaml.org,2002:str', False, node.value, style='"'))
+            self.ascend_resolver()
+            return
+        return yaml.serializer.Serializer.serialize_node(self, node, parent, index)
+
+class VarEntityEmitter(yaml.emitter.Emitter):
+    def process_tag(self):
+        if isinstance(self.event, yaml.events.ScalarEvent) and isinstance(self.event.value, VarEntity):
+            self.prepared_tag = None
+            return
+        return yaml.emitter.Emitter.process_tag(self)
+
+    def process_scalar(self):
+        if isinstance(self.event.value, VarEntity):
+            self.event.value.indent = self.indent
+            data = ''
+            if not self.whitespace:
+                data = ' '
+                self.column += 1
+            data = data + self.event.value
+            self.column += 1
+            self.stream.write(data)
+            self.whitespace = False
+            self.analysis = None
+            self.style = None
+            return
+        return yaml.emitter.Emitter.process_scalar(self)
+
+class BaseDumper(VarEntityEmitter, VarEntitySerializer, BlockRepresenter, yaml.dumper.BaseDumper):
     pass
 
-class SafeDumper(BlockRepresenter, yaml.dumper.SafeDumper):
+class SafeDumper(VarEntityEmitter, VarEntitySerializer, BlockRepresenter, yaml.dumper.SafeDumper):
     pass
 
-class BlockDumper(BlockRepresenter, yaml.dumper.Dumper):
+class BlockDumper(VarEntityEmitter, VarEntitySerializer, BlockRepresenter, yaml.dumper.Dumper):
     pass
 
-class quoted(str):
-    pass
+class StringDumper(BlockRepresenter, yaml.dumper.SafeDumper):
+    def expect_document_root(self):
+        self.states.append(self.expect_document_end)
+        self.expect_node(root=True)
+        self.open_ended = False
 
-def quoted_presenter(dumper, data):
-    return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='"')
-yaml.add_representer(quoted, quoted_presenter, Dumper=yaml.Dumper)
-yaml.add_representer(quoted, quoted_presenter, Dumper=yaml.SafeDumper)
-
-class literal(str):
-    pass
-
-def literal_presenter(dumper, data):
-    print('here')
-    return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
-yaml.add_representer(literal, literal_presenter, Dumper=yaml.Dumper)
-yaml.add_representer(literal, literal_presenter, Dumper=yaml.SafeDumper)
+    def expect_document_end(self):
+        if isinstance(self.event, yaml.events.DocumentEndEvent):
+            self.flush_stream()
+            self.state = self.expect_document_start
+        else:
+            raise EmitterError("expected DocumentEndEvent, but got %s"
+                    % self.event)
 
 def ordered_dict_presenter(dumper, data):
     return dumper.represent_dict(data.items())
-yaml.add_representer(OrderedDict, ordered_dict_presenter, Dumper=yaml.Dumper)
-yaml.add_representer(OrderedDict, ordered_dict_presenter, Dumper=yaml.SafeDumper)
+yaml.add_representer(OrderedDict, ordered_dict_presenter, Dumper=BlockDumper)
+yaml.add_representer(OrderedDict, ordered_dict_presenter, Dumper=SafeDumper)
 
-def _should_use_block(v):
-    for c in u"\u000a\u000d\u001c\u001d\u001e\u0085\u2028\u2029":
-        if c in value:
-            return True
-    return False
+def var_entity_presenter(dumper, data):
+    def representer(val):
+        return yaml.dump(val,
+                         indent=data.indent,
+                         allow_unicode=True,
+                         default_flow_style=False,
+                         Dumper=StringDumper)
+    data.renderer = representer
+    if hasattr(dumper, 'represent_unicode'):
+        return dumper.represent_unicode(data)
+    else:
+        return dumper.represent_str(data)
+yaml.add_multi_representer(VarEntity, var_entity_presenter, Dumper=BlockDumper)
+yaml.add_multi_representer(VarEntity, var_entity_presenter, Dumper=SafeDumper)
 
 def yaml_safe_dump(*args, **kwargs):
+    stream = FakeStringIO()
+    kwargs['stream'] = stream
     kwargs['default_flow_style'] = False
     kwargs['allow_unicode'] = True
     kwargs['Dumper'] = SafeDumper
-    return yaml.dump(*args, **kwargs)
+    yaml.dump(*args, **kwargs)
+    return stream.get_value()
 
 def yaml_dump(*args, **kwargs):
+    stream = FakeStringIO()
+    kwargs['stream'] = stream
     kwargs['default_flow_style'] = False
     kwargs['allow_unicode'] = True
     kwargs['Dumper'] = BlockDumper
-    return yaml.dump(*args, **kwargs)
+    yaml.dump(*args, **kwargs)
+    return stream.get_value()

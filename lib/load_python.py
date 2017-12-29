@@ -14,6 +14,7 @@ from kube_yaml import yaml_safe_dump
 from load_python_core import do_compile_internal
 from kube_obj import KubeObj, KubeBaseObj
 import kube_objs
+import kube_vartypes
 from ns_registry import NamespaceRegistry
 from util import mkdir_p
 
@@ -71,13 +72,14 @@ class PythonFileCollection(loader.Loader):
                     if self.outputs[ns][ident][1] is not None:
                         self.debug(1, 'writing {}.yaml in {}'.format(ident, ns))
                         with open(os.path.join(output_base, ns, '.' + ident + '.tmp'), 'w') as f:
-                            f.write(self.outputs[ns][ident][1])
+                            f.write(str(self.outputs[ns][ident][1]))
                         os.rename(os.path.join(output_base, ns, '.' + ident + '.tmp'),
                                   os.path.join(output_base, ns, ident + '.yaml'))
 
 
 class PythonFile(object):
     _kube_objs = None
+    _kube_vartypes = None
 
     def __init__(self, collection, path):
         assert path.basename != '' and '.' not in path.basename
@@ -141,6 +143,20 @@ class PythonFile(object):
 
         return cls._kube_objs
 
+    @classmethod
+    def get_kube_vartypes(cls):
+        if cls._kube_vartypes is None:
+            cls._kube_vartypes = {}
+
+            for k in kube_vartypes.__dict__:
+                if isinstance(kube_vartypes.__dict__[k], type) and k not in ('VarEntity'):
+                    try:
+                        if isinstance(kube_vartypes.__dict__[k](_test=True), kube_vartypes.VarEntity):
+                            cls._kube_vartypes[k] = kube_vartypes.__dict__[k]
+                    except:
+                        pass
+        return cls._kube_vartypes
+
     def default_ns(self):
         def import_python(name, *exports):
             self.debug(3, '{}: import_python({}, ...)'.format(self.path.src_rel_path, name))
@@ -174,5 +190,6 @@ class PythonFile(object):
             }
 
         ret.update(self.__class__.get_kube_objs())
+        ret.update(self.__class__.get_kube_vartypes())
 
         return ret

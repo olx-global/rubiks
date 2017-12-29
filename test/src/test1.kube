@@ -8,7 +8,6 @@ with namespace('test-ns'):
                                     'username': 'foo',
                                     'email': 'foo@example.com',
                                     'password': 'password',
-                                    'auth': 'Zm9vOnBhc3N3b3Jk',
                                     },
                                 })
     output(ret)
