@@ -6,6 +6,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import sys
 
 DEV = True
 VERBOSE = False
@@ -46,6 +47,7 @@ class Path(object):
         self.srcsdir = repository.sources
 
         self.full_path = os.path.realpath(path)
+        self.repo_rel_path = os.path.relpath(self.full_path, self.rootdir)
         self.src_rel_path = os.path.relpath(self.full_path, self.srcsdir)
         if not self.in_sources():
             raise LoaderNotInSourcesException('{} is not in sources directory {}'.format(

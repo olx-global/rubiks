@@ -28,7 +28,7 @@ class PythonFileCollection(loader.Loader):
     _python_file_types = None
 
     @classmethod
-    def get_python_file_type(cls, extension):
+    def get_python_file_type(cls, extension=None):
         def _rec_subclasses(kls):
             ret = {}
             for c in kls.__subclasses__():
@@ -41,6 +41,11 @@ class PythonFileCollection(loader.Loader):
         if cls._python_file_types is None:
             cls._python_file_types = _rec_subclasses(PythonBaseFile)
 
+        if extension is None:
+            ret = {}
+            ret.update(cls._python_file_types)
+            return ret
+
         try:
             return cls._python_file_types[extension]
         except KeyError:
@@ -51,15 +56,23 @@ class PythonFileCollection(loader.Loader):
         self.clustered_outputs = {}
         self.clusterless_outputs = {}
 
+    def get_file_context(self, path):
+        if path.extension is None:
+            raise UserError(loader.LoaderFileNameError(
+                "Filenames must have an extension in {}".format(path.full_path)))
+
+        python_loader = self.__class__.get_python_file_type(path.extension)
+
+        if python_loader is None:
+            raise UserError(loader.LoaderFileNameError(
+                "No valid handler for extension {} in {}".format(path.extension, path.full_path)))
+
+        return self.get_or_add_file(path, python_loader, (self, path))
+
     def load_python(self, path):
         pth = loader.Path(os.path.join(self.repository.basepath, path), self.repository)
 
-        python_loader = self.__class__.get_python_file_type(pth.extension)
-        if python_loader is None:
-            raise UserError(loader.LoaderFileNameError(
-                "No valid handler for extension {} in {}".format(pth.extension, path)))
-
-        self.get_or_add_file(pth, python_loader, (self, pth))
+        self.get_file_context(pth)
 
     def import_python(self, py_context, name, exports, **kwargs):
         path = self.import_check(py_context, name)
@@ -71,12 +84,7 @@ class PythonFileCollection(loader.Loader):
         if 'import_as' in kwargs:
             del kwargs['import_as']
 
-        python_loader = self.__class__.get_python_file_type(path.extension)
-        if python_loader is None:
-            raise UserError(loader.LoaderFileNameError(
-                "No valid handler for extension {} in {}".format(path.extension, path)))
-
-        new_context = self.get_or_add_file(path, python_loader, (self, path))
+        new_context = self.get_file_context(path)
 
         self.import_symbols(name, new_context.path, py_context.path, basename,
                             new_context, py_context._current_module, exports, **kwargs)
@@ -92,11 +100,16 @@ class PythonFileCollection(loader.Loader):
         else:
             ns = kobj.namespace
 
-        cluster = kobj._in_cluster
-        if kobj._in_cluster is not None:
-            cluster = cluster.name
-            if cluster not in self.clustered_outputs:
-                self.clustered_outputs[cluster] = {}
+        clusters = self.repository.get_clusters()
+
+        if len(clusters) == 0:
+            cluster = None
+        else:
+            cluster = kobj._in_cluster
+            if kobj._in_cluster is not None:
+                cluster = cluster.name
+                if cluster not in self.clustered_outputs:
+                    self.clustered_outputs[cluster] = {}
 
         if cluster is None:
             if ns.name not in self.clusterless_outputs:
@@ -136,32 +149,46 @@ class PythonFileCollection(loader.Loader):
             os.rename(os.path.join(output_base, pth, '.' + ident + '.tmp'),
                       os.path.join(output_base, pth, ident + '.yaml'))
 
-        for c in self.repository.get_clusters():
+        clusters = self.repository.get_clusters()
+
+        if len(clusters):
+            for c in clusters:
+                for ns in self.clusterless_outputs:
+                    if any(map(lambda x: x[1] is not None, self.clusterless_outputs[ns].values())):
+                        mkdir_p(os.path.join(output_base, c))
+                        for ident in self.clusterless_outputs[ns]:
+                            if self.clusterless_outputs[ns][ident][0]._uses_namespace:
+                                mkdir_p(os.path.join(output_base, c, ns))
+                                if self.clusterless_outputs[ns][ident][1] is not None:
+                                    write_file(os.path.join(c, ns), ident, self.clusterless_outputs[ns][ident][1])
+                            else:
+                                if self.clusterless_outputs[ns][ident][1] is not None:
+                                    write_file(c, ident, self.clusterless_outputs[ns][ident][1])
+                if not c in self.clustered_outputs:
+                    continue
+                for ns in self.clustered_outputs[c]:
+                    if any(map(lambda x: x[1] is not None, self.clustered_outputs[c][ns].values())):
+                        mkdir_p(os.path.join(output_base, c))
+                        for ident in self.clustered_outputs[c][ns]:
+                            if self.clustered_outputs[c][ns][ident][0]._uses_namespace:
+                                mkdir_p(os.path.join(output_base, c, ns))
+                                if self.clustered_outputs[c][ns][ident][1] is not None:
+                                    write_file(os.path.join(c, ns), ident, self.clustered_outputs[c][ns][ident][1])
+                            else:
+                                if self.clustered_outputs[c][ns][ident][1] is not None:
+                                    write_file(c, ident, self.clustered_outputs[c][ns][ident][1])
+        else:
             for ns in self.clusterless_outputs:
                 if any(map(lambda x: x[1] is not None, self.clusterless_outputs[ns].values())):
-                    mkdir_p(os.path.join(output_base, c))
+                    mkdir_p(output_base)
                     for ident in self.clusterless_outputs[ns]:
                         if self.clusterless_outputs[ns][ident][0]._uses_namespace:
-                            mkdir_p(os.path.join(output_base, c, ns))
+                            mkdir_p(os.path.join(output_base, ns))
                             if self.clusterless_outputs[ns][ident][1] is not None:
-                                write_file(os.path.join(c, ns), ident, self.clusterless_outputs[ns][ident][1])
+                                write_file(ns, ident, self.clusterless_outputs[ns][ident][1])
                         else:
                             if self.clusterless_outputs[ns][ident][1] is not None:
-                                write_file(c, ident, self.clusterless_outputs[ns][ident][1])
-            if not c in self.clustered_outputs:
-                continue
-            for ns in self.clustered_outputs[c]:
-                if any(map(lambda x: x[1] is not None, self.clustered_outputs[c][ns].values())):
-                    mkdir_p(os.path.join(output_base, c))
-                    for ident in self.clustered_outputs[c][ns]:
-                        if self.clustered_outputs[c][ns][ident][0]._uses_namespace:
-                            mkdir_p(os.path.join(output_base, c, ns))
-                            if self.clustered_outputs[c][ns][ident][1] is not None:
-                                write_file(os.path.join(c, ns), ident, self.clustered_outputs[c][ns][ident][1])
-                        else:
-                            if self.clustered_outputs[c][ns][ident][1] is not None:
-                                write_file(c, ident, self.clustered_outputs[c][ns][ident][1])
-
+                                write_file('.', ident, self.clusterless_outputs[ns][ident][1])
 
 class PythonBaseFile(object):
     _kube_objs = None
@@ -214,7 +241,12 @@ class PythonBaseFile(object):
         self.default_import_args = {}
 
         if self.compile_in_init:
-            self.module = self.do_compile()
+            save_cluster = KubeBaseObj._default_cluster
+            try:
+                KubeBaseObj._default_cluster = None
+                self.module = self.do_compile()
+            finally:
+                KubeBaseObj._default_cluster = save_cluster
 
     def debug(self, *args):
         return self.collection().debug(*args)
@@ -283,14 +315,15 @@ class PythonBaseFile(object):
             'import_python': import_python,
             'namespace': namespace,
 
-            'clusters': clusters,
-            'cluster_info': cluster_info,
-
             'output': output,
             }
 
-        if self.can_cluster_context:
-            ret['cluster_context'] = cluster_context
+        if len(clusters) != 0:
+            ret['clusters'] = clusters
+            ret['cluster_info'] = cluster_info
+
+            if self.can_cluster_context:
+                ret['cluster_context'] = cluster_context
 
         ret.update(self.__class__.get_kube_objs())
         ret.update(self.__class__.get_kube_vartypes())
@@ -379,28 +412,47 @@ class PythonRunPerClusterFile(PythonBaseFile):
 
     def __init__(self, *args, **kwargs):
         PythonBaseFile.__init__(self, *args, **kwargs)
-        self.module = {}
-        for c in self.collection().repository.get_clusters():
-            this_cluster = self.collection().repository.get_cluster_info(c)
+        clusters = self.collection().repository.get_clusters()
+
+        if len(clusters) == 0:
+            self.fallback = True
+            save_cluster = KubeBaseObj._default_cluster
             try:
-                KubeBaseObj._default_cluster = this_cluster
-                self.default_import_args = {'cluster': c}
-                self.module[c] = self.do_compile({'current_cluster': this_cluster, 'current_cluster_name': c})
-            finally:
-                self.default_import_args = {}
                 KubeBaseObj._default_cluster = None
+                self.module = self.do_compile({'current_cluster': None, 'current_cluster_name': None})
+            finally:
+                KubeBaseObj._default_cluster = save_cluster
+
+        else:
+            self.fallback = False
+            self.module = {}
+            for c in self.collection().repository.get_clusters():
+                this_cluster = self.collection().repository.get_cluster_info(c)
+                save_cluster = KubeBaseObj._default_cluster
+                try:
+                    KubeBaseObj._default_cluster = this_cluster
+                    self.default_import_args = {'cluster': c}
+                    self.module[c] = self.do_compile({'current_cluster': this_cluster, 'current_cluster_name': c})
+                finally:
+                    KubeBaseObj._default_cluster = save_cluster
 
     def get_module(self, **kwargs):
+        if self.fallback:
+            return self.module
         if not 'cluster' in kwargs:
             raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube files")
         return self.module[kwargs['cluster']]
 
     def get_symnames(self, **kwargs):
+        if self.fallback:
+            return self.module.__dict__.keys()
         if not 'cluster' in kwargs:
             raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube files")
         return self.module[kwargs['cluster']].__dict__.keys()
 
     def get_symbol(self, symname, **kwargs):
+        if self.fallback:
+            return self.module.__dict__[symname]
         if not 'cluster' in kwargs:
             raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube files")
         return self.module[kwargs['cluster']].__dict__[symname]
