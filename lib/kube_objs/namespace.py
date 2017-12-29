@@ -13,6 +13,10 @@ class Namespace(KubeObj):
     kind = 'Namespace'
     kubectltype = 'namespace'
 
+    def __init__(self, *args, **kwargs):
+        KubeObj.__init__(self, *args, **kwargs)
+        self._in_cluster = None
+
     def set_namespace(self, name):
         return None
 

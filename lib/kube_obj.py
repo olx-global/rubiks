@@ -38,6 +38,8 @@ class KubeTypeUnresolvable(Exception):
 
 class KubeBaseObj(object):
     _default_ns = 'default'
+    _default_cluster = None
+    _uses_namespace = True
     _defaults = {}
     _types = {}
     _map = {}
@@ -57,6 +59,8 @@ class KubeBaseObj(object):
 
         self.namespace = None
         self.set_namespace(KubeBaseObj._default_ns)
+
+        self._in_cluster = KubeBaseObj._default_cluster
 
         if hasattr(self, 'add_obj'):
             self.add_obj()

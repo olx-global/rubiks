@@ -2,3 +2,8 @@
 sources = test/src
 outputs = test/out
 pythonpath = test/lib
+
+[cluster_staging]
+prod_state = staging
+
+[cluster_production]
