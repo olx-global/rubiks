@@ -78,6 +78,19 @@ with namespace('myapp'):
     output(ret)
 
 with namespace('openshifter'):
+    labels = {'app': 'another-app', 'deployenv': 'production'}
+    ret = DeploymentConfig('another-app', replicas=2, revisionHistoryLimit=2, selector=labels)
+    ret.labels.update(labels)
+    ret.pod_template.labels.update(labels)
+    ret.new_strategy(DCRollingStrategy, rollingParams=DCRollingParams(maxSurge=1, maxUnavailable='25%', intervalSeconds=2))
+    ret.pod_template.containers.append(ContainerSpec('another-app', image='dockerhub.internal/apps/another-app:latest',
+                                                     command=['python', '/another-app.py'],
+                                                     ))
+    ctr = ret.pod_template.containers[-1]
+    ctr.new_port(containerPort=8080)
+    ctr.new_livenessProbe(ContainerProbeTCPPortSpec, port=8000, timeoutSeconds=30, initialDelaySeconds=5)
+    output(ret)
+
     ret = Route('another-app', host='another-app.mycluster.mycompany.com')
     ret.new_to(RouteDestService, name='another-app')
     ret.new_tls()

@@ -22,17 +22,23 @@ class DplRecreateStrategy(DplBaseUpdateStrategy):
 
 class DplRollingUpdateStrategy(DplBaseUpdateStrategy):
     _defaults = {
-        'maxSurge': 1,
-        'maxUnavailable': 50,
-    }
+        'maxSurge': None,
+        'maxUnavailable': None,
+        }
 
     _types = {
-        'maxSurge': Positive(NonZero(Integer)),
-        'maxUnavailable': Positive(Integer),
-    }
+        'maxSurge': SurgeSpec,
+        'maxUnavailable': SurgeSpec,
+        }
+
+    def do_validate(self):
+        return SurgeCheck.validate(self._data['maxSurge'], self._data['maxUnavailable'])
 
     def render(self):
-        return {'rollingUpdate': self.renderer(), 'type': 'RollingUpdate'}
+        ret = self.renderer()
+        if len(ret) == 0:
+            return {'type': 'RollingUpdate'}
+        return {'rollingUpdate': ret, 'type': 'RollingUpdate'}
 
 
 class Deployment(KubeObj):
@@ -41,29 +47,29 @@ class Deployment(KubeObj):
     kubectltype = 'deployment'
 
     _defaults = {
-        'replicas': 1,
-        'revisionHistoryLimit': None,
-        'selector': None,
-        'strategy': None,
         'minReadySeconds': None,
         'paused': None,
         'pod_template': PodTemplateSpec(),
         'progressDeadlineSeconds': None,
-    }
+        'replicas': 1,
+        'revisionHistoryLimit': None,
+        'selector': None,
+        'strategy': None,
+        }
 
     _types = {
-        'replicas': Positive(NonZero(Integer)),
-        'revisionHistoryLimit': Nullable(Positive(NonZero(Integer))),
-        'selector': Nullable(BaseSelector),
-        'strategy': Nullable(DplBaseUpdateStrategy),
         'minReadySeconds': Nullable(Positive(NonZero(Integer))),
         'paused': Nullable(Boolean),
         'pod_template': PodTemplateSpec(),
         'progressDeadlineSeconds': Nullable(Positive(NonZero(Integer))),
-    }
+        'replicas': Positive(NonZero(Integer)),
+        'revisionHistoryLimit': Nullable(Positive(NonZero(Integer))),
+        'selector': Nullable(BaseSelector),
+        'strategy': Nullable(DplBaseUpdateStrategy),
+        }
 
     def render(self):
-        ret = self.renderer(mapping={'pod_template': 'template'}, order=('replicas',))
+        ret = self.renderer(mapping={'pod_template': 'template'}, order=('replicas', 'template'))
         if isinstance(self._data['selector'], MatchLabelsSelector):
             self.labels.update(self._data['selector']._data['matchLabels'])
         del ret['name']

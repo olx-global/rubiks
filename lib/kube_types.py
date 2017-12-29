@@ -174,6 +174,41 @@ class String(KubeType):
         return isinstance(value, str)
 
 
+class SurgeSpec(KubeType):
+    validation_text = "Expected surge/unavailable type ie integer or percent"
+
+    def do_check(self, value, path):
+        if value is None:
+            return True
+
+        if String().do_check(value, path):
+            if len(value) < 2:
+                return False
+            if value.endswith('%') and value[:-1].isdigit() and int(value[:-1]) < 100:
+                return True
+            return False
+        else:
+            return Positive(Integer).do_check(value, path)
+
+
+class SurgeError(Exception):
+    pass
+
+class SurgeCheck(object):
+    @classmethod
+    def validate(cls, surge, unavailable):
+        def check_zero(v):
+            if v is None:
+                return True
+
+            return (String().do_check(v, None) and int(v[:-1]) == 0) or (v == 0)
+
+        if check_zero(surge) and check_zero(unavailable):
+            raise UserError(SurgeError("maxSurge and maxUnavailable cannot both be zero"))
+
+        return True
+
+
 class IPv4(String):
     validation_text = "Expected an IPv4 address"
 

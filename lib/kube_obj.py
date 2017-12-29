@@ -68,6 +68,8 @@ class KubeBaseObj(object):
                 self._data[k] = []
                 self._data[k].extend(kwargs[k])
             else:
+                if self._data[k] is None:
+                    self._data[k] = {}
                 self._data[k].update(kwargs[k])
 
     @classmethod
@@ -246,7 +248,7 @@ class KubeBaseObj(object):
             Map(String, String).check(self.annotations, '{}.(annotations)'.format(path))
 
         if not self.check_namespace():
-            raise KubeObjNoNamespace("No namespace attached to object at {}".format(path))
+            raise UserError(KubeObjNoNamespace("No namespace attached to object at {}".format(path)))
 
         for k in types:
             if k in self._data:

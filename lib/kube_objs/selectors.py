@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 
 from kube_obj import KubeSubObj
 from kube_types import *
+from user_error import UserError
 
 
 class BaseSelector(KubeSubObj):
@@ -18,9 +19,14 @@ class MatchLabelsSelector(BaseSelector):
     _types = {'matchLabels': Map(String, String)}
 
     def render(self):
-        if len(self._data['matchLabels']) == 0:
+        ret = self.renderer()
+        if len(ret['matchLabels']) == 0:
             return None
-        return {'matchLabels': self._data['matchLabels']}
+        return {'matchLabels': ret['matchLabels']}
+
+
+class MatchExpressionInvalid(Exception):
+    pass
 
 
 class MatchExpression(KubeSubObj):
@@ -35,6 +41,15 @@ class MatchExpression(KubeSubObj):
         'operator': Enum('In', 'NotIn', 'Exists', 'DoesNotExist'),
         'values': Nullable(List(String)),
         }
+
+    def do_validate(self):
+        if self._data['operator'] in ('In', 'NotIn'):
+            if self._data['values'] is None or len(self._data['values']) == 0:
+                raise UserError(MatchExpressionInvalid('operator In/NotIn requires nonempty values'))
+        else:
+            if self._data['values'] is not None and len(self._data['values']) != 0:
+                raise UserError(MatchExpressionInvalid('operator Exists/DoesNotExist requires empty values'))
+        return True
 
     def render(self):
         return self.renderer(order=('key', 'operator', 'values'))
