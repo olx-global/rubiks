@@ -45,8 +45,8 @@ class GitFile(object):
             return GitModifiedFile(line, base)
         elif line.startswith(b'2 '):
             cr = line.split(b' ', 8)[8][0]
-            assert CR in (b'C', b'R')
-            if cr == b'C':
+            assert cr in (b'C'[0], b'R'[0])
+            if cr == b'C'[0]:
                 return GitCopiedFile(line, base)
             else:
                 return GitRenamedFile(line, base)
@@ -183,12 +183,12 @@ class GitUnmergedFile(GitAlteredFile):
 
 class GitRenamedFile(GitMultiAlteredFile):
     def __init__(self, line, base):
-        self.parse_expecting(line, b'R')
+        self.parse_expecting(line, b'R'[0])
         self.base = base
 
 class GitCopiedFile(GitMultiAlteredFile):
     def __init__(self, line, base):
-        self.parse_expecting(line, b'C')
+        self.parse_expecting(line, b'C'[0])
         self.base = base
 
 class GitStatus(object):
