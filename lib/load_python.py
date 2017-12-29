@@ -14,7 +14,7 @@ from kube_yaml import yaml_safe_dump
 from load_python_core import do_compile_internal
 from kube_obj import KubeObj, KubeBaseObj
 from obj_registry import obj_registry
-from user_error import UserError
+from user_error import UserError, user_originated
 import kube_objs
 import kube_vartypes
 from util import mkdir_p
@@ -321,10 +321,26 @@ class PythonBaseFile(object):
             obj_registry().new_context(id(self))
             finished_ok = False
             try:
-                mod = do_compile_internal(
-                    self, src,
-                    os.path.join(self.collection().repository.sources, self.path.src_rel_path),
-                    self.path.dot_path(), self.path.full_path, ctx)
+                o_exc = None
+                try:
+                    mod = do_compile_internal(
+                        self, src,
+                        os.path.join(self.collection().repository.sources, self.path.src_rel_path),
+                        self.path.dot_path(), self.path.full_path, ctx)
+                except UserError as e:
+                    o_exc = sys.exc_info()
+                    e.prepend_tb(o_exc[2])
+                    raise
+                except SyntaxError:
+                    raise
+                except Exception:
+                    o_exc = sys.exc_info()
+                    if not user_originated(o_exc[2]):
+                        raise
+
+                if o_exc is not None:
+                    raise UserError(o_exc[1], tb=o_exc[2])
+
                 finished_ok = True
             finally:
                 objs = obj_registry().close_context(id(self))
