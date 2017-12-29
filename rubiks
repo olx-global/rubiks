@@ -39,5 +39,5 @@ obj_registry.init(r.is_openshift)
 coll = load_python.PythonFileCollection(r)
 
 with user_error.user_errors(True):
-    coll.load_python('test/src/test1.gkube')
-    coll.gen_output()
+    coll.load_all_python(r.sources)
+    coll.gen_output(os.path.join(r.basepath, r.outputs))

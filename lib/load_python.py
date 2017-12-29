@@ -69,13 +69,51 @@ class PythonFileCollection(loader.Loader):
 
         return self.get_or_add_file(path, python_loader, (self, path))
 
+    def load_all_python(self, basepath):
+        extensions = self.__class__.get_python_file_type(None)
+        good_ext = set()
+        for ext in extensions:
+            if extensions[ext].default_export_objects:
+                good_ext.add(ext)
+
+        paths = []
+
+        def _rec_add(path):
+            d_ents = os.listdir(os.path.join(self.repository.basepath, basepath, path, '.'))
+            for d_ent in d_ents:
+                if d_ent.startswith('.'):
+                    continue
+                if os.path.exists(os.path.join(self.repository.basepath, basepath, path, d_ent, '.')):
+                    if path == '.':
+                        _rec_add(d_ent)
+                    else:
+                        _rec_add(os.path.join(path, d_ent))
+                    continue
+                pth = loader.Path(os.path.join(self.repository.basepath, basepath, path, d_ent), self.repository)
+                if pth.extension is None:
+                    continue
+                if pth.extension not in good_ext:
+                    continue
+                paths.append(pth)
+
+        _rec_add('.')
+
+        for p in paths:
+            self.load_python(p)
+
     def load_python(self, path):
-        pth = loader.Path(os.path.join(self.repository.basepath, path), self.repository)
+        if isinstance(path, loader.Path):
+            pth = path
+        else:
+            pth = loader.Path(os.path.join(self.repository.basepath, path), self.repository)
+        self.debug(1, 'loading python {}'.format(pth.repo_rel_path))
 
         self.get_file_context(pth)
 
     def import_python(self, py_context, name, exports, **kwargs):
         path = self.import_check(py_context, name)
+
+        self.debug(1, 'importing python {} ({} -> {})'.format(path.repo_rel_path, py_context.path.repo_rel_path, name))
 
         basename = path.basename
         if 'import_as' in kwargs and kwargs['import_as'] is not None:
@@ -139,9 +177,7 @@ class PythonFileCollection(loader.Loader):
                     c_text = 'cluster: {}'.format(cluster)
                 raise RubiksOutputError("Duplicate objects {}: {}/{} found".format(c_text, ns.name, identifier))
 
-    def gen_output(self):
-        output_base = os.path.join(self.repository.basepath, self.repository.outputs)
-
+    def gen_output(self, output_base):
         def write_file(pth, ident, content):
             self.debug(1, 'writing {}.yaml in {}'.format(ident, pth))
             with open(os.path.join(output_base, pth, '.' + ident + '.tmp'), 'w') as f:
