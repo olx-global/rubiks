@@ -10,6 +10,8 @@ import copy
 
 from kube_obj import KubeBaseObj, KubeSubObj, order_dict
 from kube_types import *
+from .service_account import ServiceAccount
+from .secret import Secret, DockerCredentials
 
 
 class Memory(String):
@@ -344,7 +346,7 @@ class PodVolumeHostSpec(PodVolumeBaseSpec):
         }
 
     _types = {
-        'name': Identifier,
+        'path': String,
         }
 
     def render(self):
@@ -457,6 +459,32 @@ class PodTemplateSpec(KubeSubObj):
         'terminationGracePeriodSeconds': Nullable(Positive(Integer)),
         'volumes': Nullable(List(PodVolumeBaseSpec)),
         }
+
+    _map = {
+        'serviceAccount': 'serviceAccountName',
+        }
+
+    def xf_imagePullSecrets(self, v):
+        if isinstance(v, DockerCredentials):
+            return [PodImagePullSecret(v.name)]
+        elif Identifier().do_check(v, None):
+            return [PodImagePullSecret(v)]
+        elif isinstance(v, list):
+            ret = []
+            for vv in v:
+                if isinstance(vv, DockerCredentials):
+                    ret.append(PodImagePullSecret(vv.name))
+                elif Identifier().do_check(vv, None):
+                    ret.append(PodImagePullSecret(vv))
+                else:
+                    ret.append(vv)
+            return ret
+        return v
+
+    def xf_serviceAccountName(self, v):
+        if isinstance(v, ServiceAccount):
+            return v.name
+        return v
 
     def render(self):
         ret = self.renderer(zlen_ok=('securityContext',), order=('containers',), mapping={'name': None})

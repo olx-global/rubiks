@@ -39,6 +39,7 @@ class KubeBaseObj(object):
     _default_ns = 'default'
     _defaults = {}
     _types = {}
+    _map = {}
     _parent_types = None
     has_metadata = False
 
@@ -46,7 +47,10 @@ class KubeBaseObj(object):
         # put the identifier in if it's specified
         if hasattr(self, 'identifier') and len(args) > 0 and self.identifier not in kwargs:
             kwargs[self.identifier] = args[0]
-        self._data = self.__class__._find_defaults(False)
+        self._data = self.__class__._find_defaults('_defaults')
+
+        for k in self.__class__._find_defaults('_map'):
+            self._data[k] = None
 
         self.namespace = None
         self.set_namespace(KubeBaseObj._default_ns)
@@ -77,23 +81,19 @@ class KubeBaseObj(object):
                 self._data[k].update(kwargs[k])
 
     @classmethod
-    def _find_defaults(cls, types=False):
+    def _find_defaults(cls, clsmap):
         ret = {}
         def _recurse(kls):
             if not (len(kls.__bases__) == 0 or (len(kls.__bases__) == 1 and kls.__bases__[0] is object)):
                 for c in kls.__bases__:
                     _recurse(c)
-            if types:
-                if hasattr(kls, '_types'):
-                    ret.update(copy.deepcopy(kls._types))
-            else:
-                if hasattr(kls, '_defaults'):
-                    ret.update(copy.deepcopy(kls._defaults))
+            if hasattr(kls, clsmap):
+                ret.update(copy.deepcopy(getattr(kls, clsmap)))
         _recurse(cls)
         if hasattr(cls, 'identifier'):
-            if types:
+            if clsmap == '_types':
                 ret[cls.identifier] = Identifier
-            else:
+            elif clsmap == '_defaults':
                 ret[cls.identifier] = ''
         return ret
 
@@ -131,8 +131,8 @@ class KubeBaseObj(object):
                     return NonEmpty(String)
                 return None
 
-            types = cls._find_defaults(False)
-            types.update(cls._find_defaults(True))
+            types = cls._find_defaults('_defaults')
+            types.update(cls._find_defaults('_types'))
 
             for k in types:
                 t = basic_validation(types[k])
@@ -256,13 +256,27 @@ class KubeBaseObj(object):
             if len(identifier) < 7:
                 spc = (7 - len(identifier)) * ' '
             txt += '    {} (identifier): {}{}\n'.format(identifier, spc, types[identifier].name())
+
+        mapping = cls._find_defaults('_map')
+        rmapping = {}
+        for d in mapping:
+            if mapping[d] not in rmapping:
+                rmapping[mapping[d]] = []
+            rmapping[mapping[d]].append(d)
+
         for p in sorted(types.keys()):
             if p == identifier:
                 continue
             spc = ''
             if len(p) < 20:
                 spc = (20 - len(p)) * ' '
-            txt += '    {}: {}{}\n'.format(p, spc, types[p].name())
+            if hasattr(cls, 'xf_{}'.format(p)):
+                xf = '*'
+            else:
+                xf = ' '
+            txt += '   {}{}: {}{}\n'.format(xf, p, spc, types[p].name())
+            if p in rmapping:
+                txt += '      ({})\n'.format(', '.join(rmapping[p]))
         return txt
 
     def has_child_object(self, obj):
@@ -277,6 +291,7 @@ class KubeBaseObj(object):
             path = 'self'
 
         types = self.__class__.resolve_types()
+        mapping = self.__class__._find_defaults('_map')
 
         if hasattr(self, 'labels'):
             Map(String, String).check(self.labels, '{}.(labels)'.format(path))
@@ -293,7 +308,7 @@ class KubeBaseObj(object):
                 types[k].check(None, path + '.' + k)
 
         for k in self._data:
-            if k not in types:
+            if k not in types and k not in mapping:
                 raise KubeTypeUnresolvable(
                     "Unknown data key {} - no type information".format(k))
 
@@ -304,6 +319,11 @@ class KubeBaseObj(object):
 
     def get_obj(self, prop, *args, **kwargs):
         types = self.__class__.resolve_types()
+
+        mapping = self.__class__._find_defaults('_map')
+        if prop in mapping:
+            prop = mapping[prop]
+
         fmt = (prop, self.__class__.__name__)
         if prop not in types:
             raise KeyError("No such property '{}' on {}".format(*fmt))
@@ -426,9 +446,37 @@ class KubeBaseObj(object):
 
         return ret
 
+    def xform(self):
+        ret = {}
+        mapping = self.__class__._find_defaults('_map')
+
+        for d in self._data:
+            if hasattr(self, 'xf_{}'.format(d)):
+                ret[d] = getattr(self, 'xf_{}'.format(d))(self._data[d])
+            elif d in mapping and hasattr(self, 'xf_{}'.format(mapping[d])):
+                ret[d] = getattr(self, 'xf_{}'.format(mapping[d]))(self._data[d])
+            else:
+                ret[d] = self._data[d]
+
+        for d in mapping:
+            if d not in ret or ret[d] is None:
+                continue
+            if mapping[d] in ret and ret[mapping[d]] is None:
+                ret[mapping[d]] = ret[d]
+            del ret[d]
+
+        return ret
+
     def do_render(self):
         self.validate()
-        obj = self.render()
+
+        sav_data = self._data
+        try:
+            self._data = self.xform()
+            obj = self.render()
+        finally:
+            self._data = sav_data
+
         if obj is None:
             return None
 
