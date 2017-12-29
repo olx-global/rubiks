@@ -6,6 +6,7 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import copy
+import traceback
 from collections import OrderedDict
 
 from kube_types import *
@@ -48,6 +49,8 @@ class KubeBaseObj(object):
         if hasattr(self, 'identifier') and len(args) > 0 and self.identifier not in kwargs:
             kwargs[self.identifier] = args[0]
         self._data = self.__class__._find_defaults('_defaults')
+
+        self._caller_file, self._caller_line, self._caller_fn = traceback.extract_stack(limit=2)[0][0:3]
 
         for k in self.__class__._find_defaults('_map'):
             self._data[k] = None
@@ -94,7 +97,7 @@ class KubeBaseObj(object):
             if clsmap == '_types':
                 ret[cls.identifier] = Identifier
             elif clsmap == '_defaults':
-                ret[cls.identifier] = ''
+                ret[cls.identifier] = None
         return ret
 
     def set_namespace(self, name):

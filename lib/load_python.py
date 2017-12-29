@@ -13,6 +13,8 @@ import loader
 from kube_yaml import yaml_safe_dump
 from load_python_core import do_compile_internal
 from kube_obj import KubeObj, KubeBaseObj
+from obj_registry import obj_registry
+from user_error import UserError
 import kube_objs
 import kube_vartypes
 from util import mkdir_p
@@ -87,6 +89,7 @@ class PythonFile(object):
         self.collection = weakref.ref(collection)
 
         self.rubiks_objs = []
+        self.output_was_called = False
 
         self.do_compile()
 
@@ -106,13 +109,29 @@ class PythonFile(object):
             with open(self.path.full_path) as f:
                 src = f.read()
 
-            self.module = do_compile_internal(
-                src,
-                os.path.join(self.collection().repository.sources, self.path.src_rel_path),
-                self.path.dot_path(),
-                self.path.full_path,
-                self.default_ns(),
-                )
+            obj_registry().new_context(id(self))
+            finished_ok = False
+            try:
+                self.module = do_compile_internal(
+                    src,
+                    os.path.join(self.collection().repository.sources, self.path.src_rel_path),
+                    self.path.dot_path(),
+                    self.path.full_path,
+                    self.default_ns(),
+                    )
+                finished_ok = True
+            finally:
+                objs = obj_registry().close_context(id(self))
+                if finished_ok and not self.output_was_called:
+                    for o in objs:
+                        if isinstance(o, KubeObj) and o._data[o.identifier] is not None:
+                            try:
+                                self.collection().add_output(o)
+                            except UserError as e:
+                                e.f_file = o._caller_file
+                                e.f_line = o._caller_line
+                                e.f_fn = o._caller_fn
+                                raise e
         except Exception as e:
             if loader.DEV:
                 raise
@@ -162,6 +181,7 @@ class PythonFile(object):
             return self.collection().import_python(self, name, exports)
 
         def output(val):
+            self.output_was_called = True
             return self.collection().add_output(val)
 
         def namespace(ns):

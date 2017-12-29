@@ -10,14 +10,12 @@ with namespace('test-ns'):
                                     'password': 'password',
                                     },
                                 })
-    output(ret)
 
     with open(os.path.join(repobase, 'Makefile')) as f:
         mf_text = f.read().replace('\t', '    ')
 
     ret = ConfigMap('test-config',
                     files={'fake-makefile': mf_text})
-    output(ret)
 
 with namespace('kube-system'):
     ret = DaemonSet('fluentd-elasticsearch')
@@ -38,7 +36,6 @@ with namespace('kube-system'):
     ctr.new_volumeMount(name=ret.pod_template.volumes[1].name, path=ret.pod_template.volumes[1].path, readOnly=True)
     ctr.new_volumeMount(name=ret.pod_template.volumes[2].name, path='/etc/td-agent')
     ctr.resources.requests.cpu = 0.5
-    output(ret)
 
 with namespace('myapp'):
     labels = {'app': 'myapp', 'deployenv': 'production'}
@@ -62,20 +59,17 @@ with namespace('myapp'):
     ctr = ret.pod_template.containers[-1]
     ctr.env.append(ContainerEnvSpec(name='MANAGEMENT_PORT', value='8081'))
     ctr.env.append(ContainerEnvSecretSpec(name='MYAPP_MAGIC_SECRET', secret_name='myapp', key='magic_token'))
-    output(ret)
 
     ret = LoadBalancerService(name='myapp', selector=labels)
     ret.ports.append(ServicePort(name='https', protocol='TCP', port=443, targetPort=8080))
     ret['aws-load-balancer-backend-protocol'] = 'https'
     ret['aws-load-balancer-ssl-cert'] = 'arn:aws:iam::12345:server-certificate/myapp.certificate'
-    output(ret)
 
     ret = PersistentVolumeClaim('data', accessModes=['ReadWriteOnce'], request='500Mi')
     ret.annotations = {
         'volume.beta.kubernetes.io/storage-class': 'slow',
         'volume.beta.kubernetes.io/storage-provisioner': 'kubernetes.io/aws-ebs',
         }
-    output(ret)
 
 with namespace('openshifter'):
     labels = {'app': 'another-app', 'deployenv': 'production'}
@@ -89,10 +83,8 @@ with namespace('openshifter'):
     ctr = ret.pod_template.containers[-1]
     ctr.new_port(containerPort=8080)
     ctr.new_livenessProbe(ContainerProbeTCPPortSpec, port=8000, timeoutSeconds=30, initialDelaySeconds=5)
-    output(ret)
 
     ret = Route('another-app', host='another-app.mycluster.mycompany.com')
     ret.new_to(RouteDestService, name='another-app')
     ret.new_tls()
     ret.port.targetPort = '8080-tcp'
-    output(ret)
