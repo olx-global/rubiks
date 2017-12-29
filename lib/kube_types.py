@@ -174,6 +174,59 @@ class String(KubeType):
         return isinstance(value, str)
 
 
+class IPv4(String):
+    validation_text = "Expected an IPv4 address"
+
+    def do_check(self, value, path):
+        if not String.do_check(self, value, path):
+            return False
+        ip = value.split('.')
+        if len(ip) != 4:
+            return False
+        def comp_ok(x):
+            if x == '' or not x.isdigit():
+                return False
+            if x == '0':
+                return True
+            if x.startswith('0'):
+                return False
+            return int(x) <= 255
+        if not all(map(comp_ok, ip)):
+            return False
+        if ip.startswith('0.') or ip.startswith('127.'):
+            return False
+        return True
+
+
+class IP(String):
+    validation_text = "Expected an IP address"
+
+    def do_check(self, value, path):
+        return IPv4().do_check(value, path)  # or IPv6().do_check(value, path)
+
+
+class Domain(String):
+    validation_text = "Expected a domain name"
+
+    def do_check(self, value, path):
+        if not String.do_check(self, value, path):
+            return False
+        if IPv4().do_check(value, path):
+            return True
+        dm = value.split('.')
+        if len(dm) < 2:
+            return False
+        if all(map(lambda x: x.isdigit(), dm)):
+            return False
+        def comp_ok(x):
+            if x == '' or x.strip('abcdefghijklmnopqrstuvwxyz-0123456789') != '':
+                return False
+            if x.startswith('-') or x.endswith('-'):
+                return False
+            return True
+        return all(map(comp_ok, dm))
+
+
 class Identifier(String):
     validation_text = "Identifiers should be <253 chars and lc alphanum or . or -"
 

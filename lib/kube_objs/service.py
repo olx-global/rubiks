@@ -45,6 +45,14 @@ class Service(KubeObj):
         }
 
 class ClusterIPService(Service):
+    _defaults = {
+        'clusterIP': None,
+        }
+
+    _types = {
+        'clusterIP': Nullable(IPv4),
+        }
+
     def render(self):
         ret = self.renderer(order=('selector', 'ports'))
         del ret['name']

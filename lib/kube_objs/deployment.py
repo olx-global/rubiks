@@ -11,11 +11,16 @@ from .pod import *
 from .selectors import *
 
 
-class BaseUpdateStrategy(KubeSubObj):
+class DplBaseUpdateStrategy(KubeSubObj):
     pass
 
 
-class RollingUpdateStrategy(BaseUpdateStrategy):
+class DplRecreateStrategy(DplBaseUpdateStrategy):
+    def render(self):
+        return {'type': 'Recreate'}
+
+
+class DplRollingUpdateStrategy(DplBaseUpdateStrategy):
     _defaults = {
         'maxSurge': 1,
         'maxUnavailable': 50,
@@ -41,15 +46,20 @@ class Deployment(KubeObj):
         'selector': None,
         'strategy': None,
         'minReadySeconds': None,
+        'paused': None,
         'pod_template': PodTemplateSpec(),
+        'progressDeadlineSeconds': None,
     }
 
     _types = {
         'replicas': Positive(NonZero(Integer)),
         'revisionHistoryLimit': Nullable(Positive(NonZero(Integer))),
         'selector': Nullable(BaseSelector),
-        'strategy': Nullable(BaseUpdateStrategy),
+        'strategy': Nullable(DplBaseUpdateStrategy),
         'minReadySeconds': Nullable(Positive(NonZero(Integer))),
+        'paused': Nullable(Boolean),
+        'pod_template': PodTemplateSpec(),
+        'progressDeadlineSeconds': Nullable(Positive(NonZero(Integer))),
     }
 
     def render(self):

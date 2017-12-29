@@ -136,14 +136,16 @@ class ContainerVolumeMountSpec(KubeSubObj):
 class ContainerProbeBaseSpec(KubeSubObj):
     _defaults = {
         'initialDelaySeconds': 0,
-        'periodSeconds': 1,
-        'failureThreshold': 3,
+        'periodSeconds': None,
+        'timeoutSeconds': None,
+        'failureThreshold': None,
         }
 
     _types = {
         'initialDelaySeconds': Positive(Integer),
-        'periodSeconds': Positive(NonZero(Integer)),
-        'failureThreshold': Positive(NonZero(Integer)),
+        'periodSeconds': Nullable(Positive(NonZero(Integer))),
+        'timeoutSeconds': Nullable(Positive(NonZero(Integer))),
+        'failureThreshold': Nullable(Positive(NonZero(Integer))),
         }
 
     @classmethod
@@ -153,9 +155,10 @@ class ContainerProbeBaseSpec(KubeSubObj):
     def render(self):
         ret = order_dict({
             'initialDelaySeconds': self._data['initialDelaySeconds'],
+            'timeoutSeconds': self._data['timeoutSeconds'],
             'periodSeconds': self._data['periodSeconds'],
             'failureThreshold': self._data['failureThreshold'],
-            }, ('initialDelaySeconds', 'periodSeconds', 'failureThreshold'))
+            }, ('initialDelaySeconds', 'timeoutSeconds', 'periodSeconds', 'failureThreshold'))
 
         if not hasattr(self, 'render_check'):
             return None
@@ -166,6 +169,22 @@ class ContainerProbeBaseSpec(KubeSubObj):
 
         ret.update(r)
         return ret
+
+
+class ContainerProbeTCPPortSpec(ContainerProbeBaseSpec):
+    _defaults = {
+        'port': 80,
+        }
+
+    _types = {
+        'port': Positive(NonZero(Integer)),
+        }
+
+    def render_check(self):
+        ret = self.renderer()
+        if ret['port'] == 0:
+            return None
+        return {'tcpSocket': ret}
 
 
 class ContainerProbeHTTPSpec(ContainerProbeBaseSpec):
@@ -190,11 +209,71 @@ class ContainerProbeHTTPSpec(ContainerProbeBaseSpec):
 
 class SecurityContext(KubeSubObj):
     _defaults = {
+        'fsGroup': None,
         'privileged': None,
+        'runAsNonRoot': None,
+        'runAsUser': None,
+        'supplementalGroups': None,
         }
 
     _types = {
+        'fsGroup': Nullable(Integer),
         'privileged': Nullable(Boolean),
+        'runAsNonRoot': Nullable(Boolean),
+        'runAsUser': Nullable(Integer),
+        'supplementalGroups': Nullable(List(Integer)),
+        }
+
+    def render(self):
+        return self.renderer()
+
+
+class LifeCycleProbe(KubeSubObj):
+    pass
+
+
+class LifeCycleExec(LifeCycleProbe):
+    _defaults = {
+        'command': [],
+        }
+
+    _types = {
+        'command': NonEmpty(List(String)),
+        }
+
+    def render(self):
+        return {'exec': self.renderer()}
+
+
+class LifeCycleHttp(LifeCycleProbe):
+    _defaults = {
+        'path': '',
+        'port': 80,
+        'scheme': None,
+        }
+
+    _types = {
+        'path': NonEmpty(Path),
+        'port': Positive(NonZero(Integer)),
+        'scheme': Nullable(Enum('HTTP', 'HTTPS')),
+        }
+
+    def render(self):
+        ret = self.renderer(order=('scheme', 'port', 'path'))
+        if ret['port'] == 0:
+            return None
+        return {'httpGet': ret}
+
+
+class LifeCycle(KubeSubObj):
+    _defaults = {
+        'preStop': None,
+        'postStart': None,
+        }
+
+    _types = {
+        'preStop': Nullable(LifeCycleProbe),
+        'postStart': Nullable(LifeCycleProbe),
         }
 
     def render(self):
@@ -209,6 +288,8 @@ class ContainerSpec(KubeSubObj):
         'command': None,
         'env': [],
         'imagePullPolicy': None,
+        'kind': None,
+        'lifecycle': None,
         'livenessProbe': None,
         'ports': [],
         'readinessProbe': None,
@@ -223,6 +304,8 @@ class ContainerSpec(KubeSubObj):
         'command': Nullable(List(String)),
         'env': Nullable(List(ContainerEnvBaseSpec)),
         'imagePullPolicy': Nullable(Enum('Always', 'IfNotPresent')),
+        'kind': Nullable(Enum('DockerImage')),
+        'lifecycle': Nullable(LifeCycle),
         'livenessProbe': Nullable(ContainerProbeBaseSpec),
         'ports': Nullable(List(ContainerPort)),
         'readinessProbe': Nullable(ContainerProbeBaseSpec),
@@ -237,12 +320,12 @@ class ContainerSpec(KubeSubObj):
 
         if 'command' in ret and len(ret['command']) > 0:
             cmd = ret['command']
-            ret['command'] = cmd[0]
+            ret['command'] = [cmd[0]]
             ret['args'] = cmd[1:]
         else:
             del ret['command']
 
-        return order_dict(ret, ('name', 'image', 'command', 'args', 'env', 'ports'))
+        return order_dict(ret, ('name', 'kind', 'image', 'command', 'args', 'env', 'ports'))
 
 
 class PodVolumeBaseSpec(KubeSubObj):
@@ -347,9 +430,14 @@ class PodTemplateSpec(KubeSubObj):
         'name': None,
         'containers': [],
         'dnsPolicy': None,
+        'hostPID': None,
+        'hostIPC': None,
+        'hostNetwork': None,
         'imagePullSecrets': [],
+        'nodeSelector': None,
         'restartPolicy': None,
         'securityContext': None,
+        'serviceAccountName': None,
         'terminationGracePeriodSeconds': None,
         'volumes': []
         }
@@ -358,9 +446,14 @@ class PodTemplateSpec(KubeSubObj):
         'name': Nullable(Identifier),
         'containers': NonEmpty(List(ContainerSpec)),
         'dnsPolicy': Nullable(Enum('ClusterFirst')),
+        'hostPID': Nullable(Boolean),
+        'hostIPC': Nullable(Boolean),
+        'hostNetwork': Nullable(Boolean),
         'imagePullSecrets': Nullable(List(PodImagePullSecret)),
+        'nodeSelector': Nullable(Map(String, String)),
         'restartPolicy': Nullable(Enum('Always')),
         'securityContext': Nullable(SecurityContext),
+        'serviceAccountName': Nullable(Identifier),
         'terminationGracePeriodSeconds': Nullable(Positive(Integer)),
         'volumes': Nullable(List(PodVolumeBaseSpec)),
         }

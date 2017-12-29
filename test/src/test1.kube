@@ -44,7 +44,7 @@ with namespace('myapp'):
     labels = {'app': 'myapp', 'deployenv': 'production'}
     ret = Deployment('myapp', replicas=5, minReadySeconds=10, revisionHistoryLimit=5,
                      selector=MatchLabelsSelector(matchLabels=labels),
-                     strategy=RollingUpdateStrategy(maxSurge=1, maxUnavailable=0),
+                     strategy=DplRollingUpdateStrategy(maxSurge=1, maxUnavailable=0),
                      )
     ret.labels.update(labels)
     ret.pod_template.labels.update(labels)
@@ -75,4 +75,11 @@ with namespace('myapp'):
         'volume.beta.kubernetes.io/storage-class': 'slow',
         'volume.beta.kubernetes.io/storage-provisioner': 'kubernetes.io/aws-ebs',
         }
+    output(ret)
+
+with namespace('openshifter'):
+    ret = Route('another-app', host='another-app.mycluster.mycompany.com')
+    ret.new_to(RouteDestService, name='another-app')
+    ret.new_tls()
+    ret.port.targetPort = '8080-tcp'
     output(ret)
