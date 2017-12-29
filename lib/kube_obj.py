@@ -5,9 +5,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from collections import OrderedDict
-from kube_types import *
 import copy
+from collections import OrderedDict
+
+from kube_types import *
+from user_error import UserError
 
 
 def order_dict(src, order):
@@ -57,8 +59,8 @@ class KubeBaseObj(object):
 
         for k in kwargs:
             if k not in self._data:
-                raise TypeError("{} is not a valid argument for {} constructor".format(
-                                k, self.__class__.__name__))
+                raise UserError(TypeError("{} is not a valid argument for {} constructor".format(
+                                          k, self.__class__.__name__)))
 
             if not isinstance(kwargs[k], (list, dict)):
                 self._data[k] = kwargs[k]
@@ -272,7 +274,7 @@ class KubeBaseObj(object):
 
         actual_type = typ.original_type()
         if actual_type is None:
-            raise KeyError("Property '{}' can't be auto-constructed in {}".format(*fmt))
+            raise UserError(KeyError("Property '{}' can't be auto-constructed in {}".format(*fmt)))
 
         rtype = None
         if isinstance(actual_type, list):
@@ -299,21 +301,22 @@ class KubeBaseObj(object):
                 actual_type = args[0]
                 args = args[1:]
             else:
-                raise TypeError(("Unexpected type as first argument for property '{}' in {}, must be subclass " +
-                                 "of {}. Valid types are: {}").
-                                format(prop, self.__class__.__name__, actual_type.__name__,
-                                       ", ".join(map(lambda x: x.__name__,
-                                                     actual_type.get_subclasses(non_abstract=True, include_self=True)))))
+                raise UserError(TypeError(("Unexpected type as first argument for property '{}' in {}, must be subclass " +
+                                           "of {}. Valid types are: {}").
+                                           format(prop, self.__class__.__name__, actual_type.__name__,
+                                                  ", ".join(map(lambda x: x.__name__,
+                                                                actual_type.get_subclasses(
+                                                                    non_abstract=True, include_self=True))))))
 
         if actual_type.is_abstract_type():
-            raise TypeError("Can't construct {} for '{}' in {}, you probably want one of: {}".
-                            format(actual_type.__name__, prop, self.__class__.__name__,
-                                   ", ".join(map(lambda x: x.__name__,
-                                                 actual_type.get_subclasses(non_abstract=True)))))
+            raise UserError(TypeError("Can't construct {} for '{}' in {}, you probably want one of: {}".
+                                      format(actual_type.__name__, prop, self.__class__.__name__,
+                                             ", ".join(map(lambda x: x.__name__,
+                                                           actual_type.get_subclasses(non_abstract=True))))))
 
         if rtype == 'dict':
             if len(args) == 0:
-                raise ValueError("Must supply key for newly constructed property '{}' on {}".format(*fmt))
+                raise UserError(ValueError("Must supply key for newly constructed property '{}' on {}".format(*fmt)))
             dkey = args[0]
             args = args[1:]
 
@@ -334,7 +337,7 @@ class KubeBaseObj(object):
         elif rtype == 'dict' and isinstance(self._data[prop], dict):
             self._data[prop].update(new)
         else:
-            raise TypeError("Expecting {} or None for property '{}' on {}".format(rtype, *fmt))
+            raise UserError(TypeError("Expecting {} or None for property '{}' on {}".format(rtype, *fmt)))
 
         return result
 

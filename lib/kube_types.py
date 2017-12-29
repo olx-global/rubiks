@@ -7,6 +7,8 @@ from __future__ import unicode_literals
 
 import sys
 
+from user_error import UserError
+
 
 class KubeTypeValidationError(Exception):
     def __init__(self, obj, vstr, path, msg):
@@ -70,9 +72,9 @@ class KubeType(object):
         ret = self.do_check(value, path=path)
 
         if not ret and hasattr(self, 'validation_text'):
-            raise KubeTypeValidationError(value, self.name(), path, self.validation_text)
+            raise UserError(KubeTypeValidationError(value, self.name(), path, self.validation_text))
         elif not ret:
-            raise KubeTypeValidationError(value, self.name(), path, 'Validation failed')
+            raise UserError(KubeTypeValidationError(value, self.name(), path, 'Validation failed'))
 
         return ret
 
@@ -98,6 +100,7 @@ class Object(KubeType):
 
 
 class Nullable(KubeType):
+    validation_text = "Expected type or None"
     wrapper = True
 
     def do_check(self, value, path):
@@ -128,6 +131,8 @@ class Integer(KubeType):
     validation_text = "Expected integer"
 
     def do_check(self, value, path):
+        if value is True or value is False:
+            return False
         if sys.version_info[0] == 2:
             return isinstance(value, (int, long))
         return isinstance(value, int)
@@ -137,6 +142,8 @@ class Number(KubeType):
     validation_text = "Expected number"
 
     def do_check(self, value, path):
+        if value is True or value is False:
+            return False
         if sys.version_info[0] == 2:
             return isinstance(value, (int, long, float))
         return isinstance(value, (int, float))
@@ -209,6 +216,8 @@ class ARN(String):
 
 
 class Path(String):
+    validation_text = "Expecting a fully qualified path"
+
     def do_check(self, value, path):
         if not String.do_check(self, value, path):
             return False
@@ -216,6 +225,8 @@ class Path(String):
 
 
 class NonEmpty(KubeType):
+    validation_text = "Expecting non-empty"
+
     wrapper = True
 
     def do_check(self, value, path):
@@ -223,6 +234,8 @@ class NonEmpty(KubeType):
 
 
 class List(KubeType):
+    validation_text = "Expecting list"
+
     wrapper = True
 
     def original_type(self):
@@ -260,7 +273,7 @@ class Map(KubeType):
 
     def check(self, value, path=None):
         if not isinstance(value, dict):
-            raise KubeTypeValidationError(value, self.name(), path, "not a dictionary")
+            raise UserError(KubeTypeValidationError(value, self.name(), path, "not a dictionary"))
 
         if path is None:
             path = 'self'

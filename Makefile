@@ -25,4 +25,12 @@ build/PyYAML-${PYYAML_VERSION}/setup.py: build/PyYAML-${PYYAML_VERSION}.tar.gz
 	cd build && tar zxvf PyYAML-${PYYAML_VERSION}.tar.gz
 	touch build/PyYAML-${PYYAML_VERSION}/setup.py
 
-.PHONY: yaml
+test:
+	@echo "testing all in test/test/test_*.py..."; \
+	PYTHON="$${PYTHON-python}"; export PYTHONPATH=test/test:lib; \
+	for i in test/test/test_*.py; do \
+	  basename="$${i##*/}"; modules="$${modules} $${basename%.py}"; \
+	done; \
+	"$${PYTHON}" -m unittest $${modules}
+
+.PHONY: yaml test

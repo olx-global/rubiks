@@ -12,14 +12,14 @@ import sys
 repobase = os.path.realpath(os.path.split(sys.modules[__name__].__file__)[0])
 
 sys.path.insert(0, os.path.join(repobase, 'lib'))
-sys.path.insert(0, os.path.join(repobase, 'vendor/{}/lib'.format(sys.version_info[0])))
-sys.path.insert(0, os.path.join(repobase, 'lib/{}'.format(sys.version_info[0])))
 
 # === real program starts here ===
 
+import load_all
 import rubiks_repository
 import load_python
 import kube_loader
+import user_error
 
 try:
     if sys.argv[1] == 'help':
@@ -36,6 +36,7 @@ except IndexError:
 r = rubiks_repository.RubiksRepository()
 coll = load_python.PythonFileCollection(r)
 
-path = load_python.loader.Path(os.path.join(r.basepath, 'test/src/test1.kube'), r)
-coll.add_file(path, load_python.PythonFile(coll, path))
-coll.gen_output()
+with user_error.user_errors(True):
+    path = load_python.loader.Path(os.path.join(r.basepath, 'test/src/test1.kube'), r)
+    coll.add_file(path, load_python.PythonFile(coll, path))
+    coll.gen_output()

@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 
 import os
 
-DEV = False
+DEV = True
 VERBOSE = False
 DEBUG = False
 
