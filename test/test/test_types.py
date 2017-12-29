@@ -11,6 +11,7 @@ import unittest
 import load_all
 import user_error
 from kube_types import *
+import kube_loader
 
 
 class TestBasicTypes(unittest.TestCase):

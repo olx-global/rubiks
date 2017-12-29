@@ -26,8 +26,8 @@ build/PyYAML-${PYYAML_VERSION}/setup.py: build/PyYAML-${PYYAML_VERSION}.tar.gz
 	touch build/PyYAML-${PYYAML_VERSION}/setup.py
 
 test:
-	@echo "testing all in test/test/test_*.py..."; \
-	PYTHON="$${PYTHON-python}"; export PYTHONPATH=test/test:lib; \
+	@PYTHON="$${PYTHON-python}"; export PYTHONPATH=test/test:lib; \
+	echo "testing all (with $${PYTHON}) in test/test/test_*.py..."; \
 	for i in test/test/test_*.py; do \
 	  basename="$${i##*/}"; modules="$${modules} $${basename%.py}"; \
 	done; \
