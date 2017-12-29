@@ -15,7 +15,6 @@ from load_python_core import do_compile_internal
 from kube_obj import KubeObj, KubeBaseObj
 import kube_objs
 import kube_vartypes
-from ns_registry import NamespaceRegistry
 from util import mkdir_p
 
 

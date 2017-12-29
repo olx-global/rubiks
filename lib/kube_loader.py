@@ -13,7 +13,7 @@ if sys.version_info[0] == 2:
 else:
     import kube_objs.__init__
 kube_objs._loader()
-import ns_registry
+import obj_registry
 
 # backlink types
 for k in kube_obj.KubeBaseObj.get_subclasses(non_abstract=False, include_self=False, depth_first=True):

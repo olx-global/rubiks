@@ -18,6 +18,7 @@ class RubiksRepository(repository.Repository):
     def __init__(self):
         repository.Repository.__init__(self)
         self.pythonpath = []
+        self.is_openshift = False
         if os.path.exists(os.path.join(self.basepath, '.rubiks')):
             m_cp = ConfigParser()
             m_cp.read(os.path.join(self.basepath, '.rubiks'))

@@ -51,6 +51,9 @@ class KubeBaseObj(object):
         self.namespace = None
         self.set_namespace(KubeBaseObj._default_ns)
 
+        if hasattr(self, 'add_obj'):
+            self.add_obj()
+
         if self.has_metadata:
             self.annotations = {}
             self.labels = {}

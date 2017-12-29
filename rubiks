@@ -17,6 +17,7 @@ sys.path.insert(0, os.path.join(repobase, 'lib'))
 
 import load_all
 import rubiks_repository
+import obj_registry
 import load_python
 import kube_loader
 import user_error
@@ -34,6 +35,7 @@ except IndexError:
     pass
 
 r = rubiks_repository.RubiksRepository()
+obj_registry.init(r.is_openshift)
 coll = load_python.PythonFileCollection(r)
 
 with user_error.user_errors(True):
