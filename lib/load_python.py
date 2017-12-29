@@ -15,13 +15,10 @@ from load_python_core import do_compile_internal
 from kube_obj import KubeObj, KubeBaseObj
 from obj_registry import obj_registry
 from user_error import UserError, user_originated
+from output import RubiksOutputError, OutputCollection
 import kube_objs
 import kube_vartypes
 from util import mkdir_p
-
-
-class RubiksOutputError(Exception):
-    pass
 
 
 class PythonFileCollection(loader.Loader):
@@ -53,8 +50,7 @@ class PythonFileCollection(loader.Loader):
 
     def __init__(self, repository):
         loader.Loader.__init__(self, repository)
-        self.clustered_outputs = {}
-        self.clusterless_outputs = {}
+        self.outputs = OutputCollection(self, repository)
 
     def get_file_context(self, path):
         if path.extension is None:
@@ -130,101 +126,10 @@ class PythonFileCollection(loader.Loader):
         self.add_dep(py_context.path, path)
 
     def add_output(self, kobj):
-        if not isinstance(kobj, KubeObj):
-            raise TypeError("argument to output should be a KubeObj derivative")
+        self.outputs.add_output(kobj)
 
-        if isinstance(kobj, kube_objs.Namespace):
-            ns = kobj
-        else:
-            ns = kobj.namespace
-
-        clusters = self.repository.get_clusters()
-
-        if len(clusters) == 0:
-            cluster = None
-        else:
-            cluster = kobj._in_cluster
-            if kobj._in_cluster is not None:
-                cluster = cluster.name
-                if cluster not in self.clustered_outputs:
-                    self.clustered_outputs[cluster] = {}
-
-        if cluster is None:
-            if ns.name not in self.clusterless_outputs:
-                self.clusterless_outputs[ns.name] = {}
-            outputs = self.clusterless_outputs[ns.name]
-        else:
-            if ns.name not in self.clustered_outputs[cluster]:
-                self.clustered_outputs[cluster][ns.name] = {}
-            outputs = self.clustered_outputs[cluster][ns.name]
-
-        if ns is not kobj:
-            self.add_output(ns)
-
-        identifier = kobj.kubectltype + '-' + getattr(kobj, kobj.identifier)
-
-        if identifier not in outputs:
-            obj = kobj.do_render()
-            if obj is not None:
-                outputs[identifier] = (kobj, yaml_safe_dump(obj, default_flow_style=False))
-            else:
-                outputs[identifier] = (kobj, None)
-        else:
-            if kobj is not outputs[identifier][0]:
-                if cluster is None:
-                    c_text = '<all_clusters>'
-                else:
-                    c_text = 'cluster: {}'.format(cluster)
-                raise RubiksOutputError("Duplicate objects {}: {}/{} found".format(c_text, ns.name, identifier))
-
-    def gen_output(self, output_base):
-        def write_file(pth, ident, content):
-            self.debug(1, 'writing {}.yaml in {}'.format(ident, pth))
-            with open(os.path.join(output_base, pth, '.' + ident + '.tmp'), 'w') as f:
-                f.write(str(content))
-            os.rename(os.path.join(output_base, pth, '.' + ident + '.tmp'),
-                      os.path.join(output_base, pth, ident + '.yaml'))
-
-        clusters = self.repository.get_clusters()
-
-        if len(clusters):
-            for c in clusters:
-                for ns in self.clusterless_outputs:
-                    if any(map(lambda x: x[1] is not None, self.clusterless_outputs[ns].values())):
-                        mkdir_p(os.path.join(output_base, c))
-                        for ident in self.clusterless_outputs[ns]:
-                            if self.clusterless_outputs[ns][ident][0]._uses_namespace:
-                                mkdir_p(os.path.join(output_base, c, ns))
-                                if self.clusterless_outputs[ns][ident][1] is not None:
-                                    write_file(os.path.join(c, ns), ident, self.clusterless_outputs[ns][ident][1])
-                            else:
-                                if self.clusterless_outputs[ns][ident][1] is not None:
-                                    write_file(c, ident, self.clusterless_outputs[ns][ident][1])
-                if not c in self.clustered_outputs:
-                    continue
-                for ns in self.clustered_outputs[c]:
-                    if any(map(lambda x: x[1] is not None, self.clustered_outputs[c][ns].values())):
-                        mkdir_p(os.path.join(output_base, c))
-                        for ident in self.clustered_outputs[c][ns]:
-                            if self.clustered_outputs[c][ns][ident][0]._uses_namespace:
-                                mkdir_p(os.path.join(output_base, c, ns))
-                                if self.clustered_outputs[c][ns][ident][1] is not None:
-                                    write_file(os.path.join(c, ns), ident, self.clustered_outputs[c][ns][ident][1])
-                            else:
-                                if self.clustered_outputs[c][ns][ident][1] is not None:
-                                    write_file(c, ident, self.clustered_outputs[c][ns][ident][1])
-        else:
-            for ns in self.clusterless_outputs:
-                if any(map(lambda x: x[1] is not None, self.clusterless_outputs[ns].values())):
-                    mkdir_p(output_base)
-                    for ident in self.clusterless_outputs[ns]:
-                        if self.clusterless_outputs[ns][ident][0]._uses_namespace:
-                            mkdir_p(os.path.join(output_base, ns))
-                            if self.clusterless_outputs[ns][ident][1] is not None:
-                                write_file(ns, ident, self.clusterless_outputs[ns][ident][1])
-                        else:
-                            if self.clusterless_outputs[ns][ident][1] is not None:
-                                write_file('.', ident, self.clusterless_outputs[ns][ident][1])
+    def gen_output(self):
+        self.outputs.write_output()
 
 class PythonBaseFile(object):
     _kube_objs = None
