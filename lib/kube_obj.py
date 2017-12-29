@@ -39,6 +39,7 @@ class KubeBaseObj(object):
     _default_ns = 'default'
     _defaults = {}
     _types = {}
+    _parent_types = None
     has_metadata = False
 
     def __init__(self, *args, **kwargs):
@@ -157,6 +158,21 @@ class KubeBaseObj(object):
         return cls._resolved_types
 
     @classmethod
+    def get_child_types(cls):
+        types = cls.resolve_types()
+        ret = {}
+        for t in types.values():
+            actual_type = t.original_type()
+            if actual_type is None:
+                continue
+            if isinstance(actual_type, list):
+                actual_type = actual_type[0]
+            elif isinstance(actual_type, dict):
+                actual_type = actual_type['value']
+            ret[actual_type.__name__] = actual_type
+        return ret
+
+    @classmethod
     def is_abstract_type(cls):
         base = KubeBaseObj.render
         this = cls.render
@@ -167,24 +183,32 @@ class KubeBaseObj(object):
         return this is base
 
     @classmethod
-    def get_subclasses(cls, non_abstract=True, include_self=False):
+    def get_subclasses(cls, non_abstract=True, include_self=False, depth_first=False):
         def _rec_subclasses(kls):
             ret = []
             subclasses = kls.__subclasses__()
             if len(subclasses) > 0:
+                if depth_first:
+                    for c in subclasses:
+                        ret.extend(_rec_subclasses(c))
+
                 if non_abstract:
                     ret.extend(filter(lambda x: not x.is_abstract_type(), subclasses))
                 else:
                     ret.extend(subclasses)
 
-                for c in subclasses:
-                    ret.extend(_rec_subclasses(c))
+                if not depth_first:
+                    for c in subclasses:
+                        ret.extend(_rec_subclasses(c))
 
             return ret
 
         ret = _rec_subclasses(cls)
         if include_self and not(non_abstract and cls.is_abstract_type()):
-            ret.insert(0, cls)
+            if depth_first:
+                ret.append(cls)
+            else:
+                ret.insert(0, cls)
 
         return ret
 
@@ -221,6 +245,8 @@ class KubeBaseObj(object):
             txt += '  parents: {}\n'.format(', '.join(superclasses))
         if len(subclasses) != 0:
             txt += '  children: {}\n'.format(', '.join(subclasses))
+        if len(cls._parent_types) != 0:
+            txt += '  parent types: {}\n'.format(', '.join(sorted(cls._parent_types.keys())))
         txt += '  properties:\n'
         if identifier is not None:
             spc = ''
@@ -235,6 +261,13 @@ class KubeBaseObj(object):
                 spc = (20 - len(p)) * ' '
             txt += '    {}: {}{}\n'.format(p, spc, types[p].name())
         return txt
+
+    def has_child_object(self, obj):
+        assert isinstance(obj, KubeBaseObj)
+        for d in self._data:
+            if obj is self._data[d]:
+                return True
+        return False
 
     def validate(self, path=None):
         if path is None:
