@@ -134,38 +134,54 @@ class Loader(object):
 
         return npath
 
-    def import_symbols(self, name, i_path, b_path, basename, i_module, b_module, exports):
-        self.debug(2, 'importing {} ({}) into {}: {}'.format(i_path, name, b_path, repr(exports)))
+    def import_symbols(self, name, f_path, t_path, basename, f_ctx, t_module, exports, **kwargs):
+        self.debug(2, 'importing {} ({}) into {}: {}'.format(f_path, name, t_path, repr(exports)))
+        reserved_names = ()
+        if '__reserved_names' in kwargs:
+            reserved_names = kwargs['__reserved_names']
+            del kwargs['__reserved_names']
+
         try:
             if len(exports) == 0:
-                # import <i_module>
-                b_module.__dict__[basename] = i_module
+                # import <f_ctx>
+                t_module.__dict__[basename] = f_ctx.get_module(**kwargs)
 
             elif len(exports) == 1 and exports[0] == '*':
-                # from <i_module> import *
-                for sym in i_module.__dict__:
+                # from <f_ctx> import *
+                for sym in f_ctx.get_symnames(**kwargs):
                     if sym == '__builtins__':
                         # this is magic, we don't try and be clever
                         continue
-                    b_module.__dict__[sym] = i_module.__dict__[sym]
+                    if sym in reserved_names:
+                        # ignore imports of symbols that are inserted by us
+                        continue
+                    t_module.__dict__[sym] = f_ctx.get_symbol(sym, **kwargs)
 
             else:
-                # from <i_module> import <foo>, <bar>
+                # from <f_ctx> import <foo>, <bar>
                 for sym in exports:
                     assert sym != '*'
                     if isinstance(sym, tuple) and len(sym) == 2:
                         # <foo> as <f>
-                        b_module.__dict__[sym[1]] = i_module.__dict__[sym[0]]
+                        if sym[0] == '__builtins__' or sym[0] in reserved_names:
+                            continue
+                        t_module.__dict__[sym[1]] = f_ctx.get_symbol(sym[0], **kwargs)
                     else:
-                        b_module.__dict__[sym] = i_module.__dict__[sym]
+                        if sym == '__builtins__' or sym in reserved_names:
+                            continue
+                        t_module.__dict__[sym] = f_ctx.get_symbol(sym, **kwargs)
 
         except AssertionError as e:
             raise LoaderImportError("'*' is only allowed as the only export importing {] -> {} from {}".format(
-                name, i_path.src_rel_path, b_path.src_rel_path))
+                name, f_path.src_rel_path, t_path.src_rel_path))
 
         except KeyError as e:
             raise LoaderImportError('symbols not found importing {} -> {} from {}: {}'.format(
-                name, i_path.src_rel_path, b_path.src_rel_path, e))
+                name, f_path.src_rel_path, t_path.src_rel_path, e))
+
+        except LoaderImportError as e:
+            raise LoaderImportError('problem importing {} -> {} from {}: {}'.format(
+                name, f_path.src_rel_path, t_path.src_rel_path, e))
 
     def add_dep(self, s_path, d_path=None):
         if s_path.src_rel_path not in self.deps:

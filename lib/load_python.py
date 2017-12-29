@@ -53,17 +53,34 @@ class PythonFileCollection(loader.Loader):
 
     def load_python(self, path):
         pth = loader.Path(os.path.join(self.repository.basepath, path), self.repository)
+
         python_loader = self.__class__.get_python_file_type(pth.extension)
         if python_loader is None:
             raise UserError(loader.LoaderFileNameError(
                 "No valid handler for extension {} in {}".format(pth.extension, path)))
-        self.add_file(pth, python_loader(self, pth))
 
-    def import_python(self, py_context, name, exports):
+        self.get_or_add_file(pth, python_loader, (self, pth))
+
+    def import_python(self, py_context, name, exports, **kwargs):
         path = self.import_check(py_context, name)
-        new_context = self.get_or_add_file(pth, PythonImportFile, (self, path))
-        self.import_symbols(name, new_context.path, py_context.path, path.basename,
-                            new_context.module, py_context.module, exports)
+
+        basename = path.basename
+        if 'import_as' in kwargs and kwargs['import_as'] is not None:
+            basename = kwargs['import_as']
+
+        if 'import_as' in kwargs:
+            del kwargs['import_as']
+
+        python_loader = self.__class__.get_python_file_type(path.extension)
+        if python_loader is None:
+            raise UserError(loader.LoaderFileNameError(
+                "No valid handler for extension {} in {}".format(path.extension, path)))
+
+        new_context = self.get_or_add_file(path, python_loader, (self, path))
+
+        self.import_symbols(name, new_context.path, py_context.path, basename,
+                            new_context, py_context._current_module, exports, **kwargs)
+
         self.add_dep(py_context.path, path)
 
     def add_output(self, kobj):
@@ -149,9 +166,9 @@ class PythonFileCollection(loader.Loader):
 class PythonBaseFile(object):
     _kube_objs = None
     _kube_vartypes = None
-    always_compile = True
-    gen_reuse_module = True
+    compile_in_init = True
     default_export_objects = False
+    can_cluster_context = True
 
     @classmethod
     def get_kube_objs(cls):
@@ -194,27 +211,50 @@ class PythonBaseFile(object):
         self.collection = weakref.ref(collection)
 
         self.output_was_called = False
+        self.default_import_args = {}
 
-        if self.always_compile:
-            self.do_compile()
+        if self.compile_in_init:
+            self.module = self.do_compile()
 
     def debug(self, *args):
         return self.collection().debug(*args)
 
-    def get_symnames(self):
+    def get_module(self, **kwargs):
+        return self.module
+
+    def get_symnames(self, **kwargs):
         return self.module.__dict__.keys()
 
-    def get_symbol(self, symname):
+    def get_symbol(self, symname, **kwargs):
         return self.module.__dict__[symname]
 
     def default_ns(self):
-        def import_python(name, *exports):
+        def import_python(name, *exports, **kwargs):
             self.debug(3, '{}: import_python({}, ...)'.format(self.path.src_rel_path, name))
-            return self.collection().import_python(self, name, exports)
+            nargs = {}
+            nargs.update(self.default_import_args)
+            nargs.update(kwargs)
+            nargs['__reserved_names'] = self.reserved_names
+            return self.collection().import_python(self, name, exports, **nargs)
 
         def output(val):
             self.output_was_called = True
             return self.collection().add_output(val)
+
+        def cluster_context(clstr):
+            class cluster_wrapper(object):
+                def __init__(self, clstr):
+                    self.cluster = clstr
+
+                def __enter__(self):
+                    self.save_cluster = KubeBaseObj._default_cluster
+                    KubeBaseObj._default_cluster = self.cluster
+
+                def __exit__(self, etyp, eval, etb):
+                    KubeBaseObj._default_cluster = self.save_cluster
+                    return False
+
+            return cluster_wrapper(self.collection().repository.get_cluster_info(clstr))
 
         def namespace(ns):
             class namespace_wrapper(object):
@@ -249,13 +289,19 @@ class PythonBaseFile(object):
             'output': output,
             }
 
+        if self.can_cluster_context:
+            ret['cluster_context'] = cluster_context
+
         ret.update(self.__class__.get_kube_objs())
         ret.update(self.__class__.get_kube_vartypes())
+
+        self.reserved_names = tuple(ret.keys())
 
         return ret
 
     def do_compile(self, extra_context=None):
         self.debug(2, 'compiling python: {} ({})'.format(self.path.src_rel_path, self.path.full_path))
+        mod = None
         savepath = sys.path
         try:
             newpath = []
@@ -275,11 +321,10 @@ class PythonBaseFile(object):
             obj_registry().new_context(id(self))
             finished_ok = False
             try:
-                m = do_compile_internal(
-                    src, os.path.join(self.collection().repository.sources, self.path.src_rel_path),
+                mod = do_compile_internal(
+                    self, src,
+                    os.path.join(self.collection().repository.sources, self.path.src_rel_path),
                     self.path.dot_path(), self.path.full_path, ctx)
-                if self.gen_reuse_module:
-                    self.module = m
                 finished_ok = True
             finally:
                 objs = obj_registry().close_context(id(self))
@@ -301,6 +346,8 @@ class PythonBaseFile(object):
         finally:
             sys.path = savepath
 
+        return mod
+
 class PythonImportFile(PythonBaseFile):
     extensions = ('kube',)
 
@@ -309,17 +356,35 @@ class PythonRunOnceFile(PythonBaseFile):
     extensions = ('gkube',)
 
 class PythonRunPerClusterFile(PythonBaseFile):
-    always_compile = False
-    gen_reuse_module = False
+    compile_in_init = False
     default_export_objects = True
     extensions = ('ekube',)
+    can_cluster_context = False
 
     def __init__(self, *args, **kwargs):
         PythonBaseFile.__init__(self, *args, **kwargs)
+        self.module = {}
         for c in self.collection().repository.get_clusters():
-            this_cluster = self.collection().repository().get_cluster_info(c)
+            this_cluster = self.collection().repository.get_cluster_info(c)
             try:
                 KubeBaseObj._default_cluster = this_cluster
-                self.do_compile({'current_cluster': this_cluster, 'current_cluster_name': c})
+                self.default_import_args = {'cluster': c}
+                self.module[c] = self.do_compile({'current_cluster': this_cluster, 'current_cluster_name': c})
             finally:
+                self.default_import_args = {}
                 KubeBaseObj._default_cluster = None
+
+    def get_module(self, **kwargs):
+        if not 'cluster' in kwargs:
+            raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube files")
+        return self.module[kwargs['cluster']]
+
+    def get_symnames(self, **kwargs):
+        if not 'cluster' in kwargs:
+            raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube files")
+        return self.module[kwargs['cluster']].__dict__.keys()
+
+    def get_symbol(self, symname, **kwargs):
+        if not 'cluster' in kwargs:
+            raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube files")
+        return self.module[kwargs['cluster']].__dict__[symname]
