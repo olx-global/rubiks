@@ -109,6 +109,9 @@ class Enum(KubeType):
     def __init__(self, *args):
         self.enums = args
 
+    def name(self):
+        return '{}({})'.format(self.__class__.__name__, ', '.join(map(repr, self.enums)))
+
     def do_check(self, value, path):
         return value in self.enums
 

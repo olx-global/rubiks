@@ -43,7 +43,7 @@ class KubeBaseObj(object):
         # put the identifier in if it's specified
         if hasattr(self, 'identifier') and len(args) > 0 and self.identifier not in kwargs:
             kwargs[self.identifier] = args[0]
-        self._data = self._find_defaults(False)
+        self._data = self.__class__._find_defaults(False)
 
         self.namespace = None
         self.set_namespace(KubeBaseObj._default_ns)
@@ -68,24 +68,25 @@ class KubeBaseObj(object):
             else:
                 self._data[k].update(kwargs[k])
 
-    def _find_defaults(self, types=False):
+    @classmethod
+    def _find_defaults(cls, types=False):
         ret = {}
-        def _recurse(cls):
-            if not (len(cls.__bases__) == 0 or (len(cls.__bases__) == 1 and cls.__bases__[0] is object)):
-                for c in cls.__bases__:
+        def _recurse(kls):
+            if not (len(kls.__bases__) == 0 or (len(kls.__bases__) == 1 and kls.__bases__[0] is object)):
+                for c in kls.__bases__:
                     _recurse(c)
             if types:
-                if hasattr(cls, '_types'):
-                    ret.update(copy.deepcopy(cls._types))
+                if hasattr(kls, '_types'):
+                    ret.update(copy.deepcopy(kls._types))
             else:
-                if hasattr(cls, '_defaults'):
-                    ret.update(copy.deepcopy(cls._defaults))
-        _recurse(self.__class__)
-        if hasattr(self, 'identifier'):
+                if hasattr(kls, '_defaults'):
+                    ret.update(copy.deepcopy(kls._defaults))
+        _recurse(cls)
+        if hasattr(cls, 'identifier'):
             if types:
-                ret[self.identifier] = Identifier
+                ret[cls.identifier] = Identifier
             else:
-                ret[self.identifier] = ''
+                ret[cls.identifier] = ''
         return ret
 
     def set_namespace(self, name):
@@ -98,7 +99,8 @@ class KubeBaseObj(object):
     def do_validate(self):
         return True
 
-    def validate(self, path=None):
+    @classmethod
+    def resolve_types(cls):
         def basic_validation(typ):
             if isinstance(typ, KubeType):
                 return typ
@@ -120,19 +122,8 @@ class KubeBaseObj(object):
                 return NonEmpty(String)
             return None
 
-        if path is None:
-            path = 'self'
-
-        types = self._find_defaults(False)
-        types.update(self._find_defaults(True))
-
-        if hasattr(self, 'labels'):
-            Map(String, String).check(self.labels, '{}.(labels)'.format(path))
-        if hasattr(self, 'annotations'):
-            Map(String, String).check(self.annotations, '{}.(annotations)'.format(path))
-
-        if not self.check_namespace():
-            raise KubeObjNoNamespace("No namespace attached to object at {}".format(path))
+        types = cls._find_defaults(False)
+        types.update(cls._find_defaults(True))
 
         for k in types:
             t = basic_validation(types[k])
@@ -155,6 +146,90 @@ class KubeBaseObj(object):
             if not isinstance(types[k], KubeType):
                 raise KubeTypeUnresolvable(
                     "Couldn't resolve (from {}) {} into a default type".format(k, repr(types[k])))
+
+        return types
+
+    @classmethod
+    def get_help(cls):
+        def _rec_subclasses(kls):
+            ret = []
+            subclasses = kls.__subclasses__()
+
+            if len(subclasses) > 0:
+                ret.extend(subclasses)
+                for c in subclasses:
+                    ret.extend(_rec_subclasses(c))
+
+            return ret
+
+        def _rec_superclasses(kls):
+            ret = []
+            superclasses = list(filter(lambda x: x is not KubeBaseObj and x is not KubeSubObj and
+                                                 x is not KubeObj and x is not object,
+                                       kls.__bases__))
+
+            if len(superclasses) > 0:
+                ret.extend(superclasses)
+                for c in superclasses:
+                    ret.extend(_rec_superclasses(c))
+
+            return ret
+
+        def _has_render():
+            base = KubeBaseObj.render
+            this = cls.render
+            if hasattr(base, '__func__') and hasattr(this, '__func__'):
+                # python 2.7
+                return this.__func__ is not base.__func__
+            # python 3
+            return this is not base
+
+        subclasses = list(map(lambda x: x.__name__, _rec_subclasses(cls)))
+        superclasses = list(map(lambda x: x.__name__, _rec_superclasses(cls)))
+
+        types = cls.resolve_types()
+
+        abstract = ''
+        if not _has_render():
+            abstract = ' (abstract type)'
+
+        identifier = None
+        if hasattr(cls, 'identifier') and cls.identifier is not None:
+            identifier = cls.identifier
+
+        txt = '{}{}:\n'.format(cls.__name__, abstract)
+        if len(superclasses) != 0:
+            txt += '  parents: {}\n'.format(', '.join(superclasses))
+        if len(subclasses) != 0:
+            txt += '  children: {}\n'.format(', '.join(subclasses))
+        txt += '  properties:\n'
+        if identifier is not None:
+            spc = ''
+            if len(identifier) < 7:
+                spc = (7 - len(identifier)) * ' '
+            txt += '    {} (identifier): {}{}\n'.format(identifier, spc, types[identifier].name())
+        for p in sorted(types.keys()):
+            if p == identifier:
+                continue
+            spc = ''
+            if len(p) < 20:
+                spc = (20 - len(p)) * ' '
+            txt += '    {}: {}{}\n'.format(p, spc, types[p].name())
+        return txt
+
+    def validate(self, path=None):
+        if path is None:
+            path = 'self'
+
+        types = self.__class__.resolve_types()
+
+        if hasattr(self, 'labels'):
+            Map(String, String).check(self.labels, '{}.(labels)'.format(path))
+        if hasattr(self, 'annotations'):
+            Map(String, String).check(self.annotations, '{}.(annotations)'.format(path))
+
+        if not self.check_namespace():
+            raise KubeObjNoNamespace("No namespace attached to object at {}".format(path))
 
         for k in types:
             if k in self._data:

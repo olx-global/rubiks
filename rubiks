@@ -21,6 +21,18 @@ import rubiks_repository
 import load_python
 import kube_loader
 
+try:
+    if sys.argv[1] == 'help':
+        objs = load_python.PythonFile.get_kube_objs()
+        for oname in objs:
+            if oname.lower() == sys.argv[2].lower():
+                print(objs[oname].get_help())
+                sys.exit(0)
+        print('Unknown type {}'.format(sys.argv[2].lower()), file=sys.stderr)
+        sys.exit(1)
+except IndexError:
+    pass
+
 r = rubiks_repository.RubiksRepository()
 coll = load_python.PythonFileCollection(r)
 
