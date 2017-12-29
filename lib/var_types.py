@@ -28,6 +28,7 @@ class VarEntity(object):
         self.var = ['self']
         self.renderer = None
         self.indent = None
+        self._in_validation = False
 
         self.init(*args, **kwargs)
 
@@ -42,6 +43,12 @@ class VarEntity(object):
 
     def clone(self):
         return copy.deepcopy(self)
+
+    def validation_value(self):
+        self._in_validation = True
+        ret = self.__str__()
+        self._in_validation = False
+        return ret
 
     def __add__(self, other):
         if self.renderer is None:

@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 import sys
 
 from user_error import UserError
+from var_types import VarEntity
 
 
 class KubeTypeValidationError(Exception):
@@ -69,7 +70,10 @@ class KubeType(object):
         return False
 
     def check(self, value, path=None):
-        ret = self.do_check(value, path=path)
+        if isinstance(value, VarEntity):
+            ret = self.do_check(value.validation_value(), path=path)
+        else:
+            ret = self.do_check(value, path=path)
 
         if not ret and hasattr(self, 'validation_text'):
             raise UserError(KubeTypeValidationError(value, self.name(), path, self.validation_text))

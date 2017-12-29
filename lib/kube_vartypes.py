@@ -40,6 +40,6 @@ class Confidential(var_types.VarEntity):
         self.value = value
 
     def to_string(self):
-        if var_types.VarContext.show_confidential:
+        if var_types.VarContext.show_confidential or self._in_validation:
             return str(self.value)
         return "*** HIDDEN ***"
