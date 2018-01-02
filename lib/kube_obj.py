@@ -10,7 +10,7 @@ import traceback
 from collections import OrderedDict
 
 from kube_types import *
-from user_error import UserError
+from user_error import UserError, paths as user_error_paths
 
 
 def _rec_update_objs(obj):
@@ -42,6 +42,10 @@ class KubeObjNoNamespace(Exception):
 
 
 class KubeTypeUnresolvable(Exception):
+    pass
+
+
+class KubeAttributeError(UserError, AttributeError):
     pass
 
 
@@ -592,7 +596,7 @@ class KubeBaseObj(object):
         return ret
 
     def __getattr__(self, k):
-        if k != '_data' and k in self._data:
+        if k != '_data' and hasattr(self, '_data') and k in self._data:
             return self._data[k]
         if k.startswith('new_') and k[4:] in self._data:
             def get_prop(*args, **kwargs):
@@ -604,21 +608,31 @@ class KubeBaseObj(object):
                 return self.get_obj(k[4:] + 's', *args, **kwargs)
             get_prop.__name__ = k
             return get_prop
-        raise AttributeError("No such attribute {}".format(k))
+        raise KubeAttributeError(AttributeError('No such attribute {} for {}'.format(k, self.__class__.__name__)))
 
     def __setattr__(self, k, v):
         if k in ('_data',):
             pass
         elif k in self._data:
             return self._data.__setitem__(k, v)
-        return object.__setattr__(self, k, v)
+        if k in ('labels', 'annotations', 'namespace'):
+            return object.__setattr__(self, k, v)
+
+        fn = traceback.extract_stack(limit=2)[0][0]
+        for p in user_error_paths:
+            if fn.startswith(p + '/'):
+                return object.__setattr__(self, k, v)
+
+        raise KubeAttributeError(AttributeError('No such attribute {} for {}'.format(k, self.__class__.__name__)))
 
     def __getitem__(self, k):
+        if not k in self._data:
+            raise UserError(KeyError("key {} is not defined for {}".format(k, self.__class__.__name__)))
         return self._data.__getitem__(k)
 
     def __setitem__(self, k, v):
         if not k in self._data:
-            raise KeyError("key {} is not defined for {}".format(k, self.__class__.__name__))
+            raise UserError(KeyError("key {} is not defined for {}".format(k, self.__class__.__name__)))
         return self._data.__setitem__(k, v)
 
 
