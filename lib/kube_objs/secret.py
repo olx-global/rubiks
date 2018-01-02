@@ -10,6 +10,14 @@ from collections import OrderedDict
 from kube_obj import KubeObj
 from kube_types import *
 from kube_vartypes import Base64, JSON
+from user_error import UserError
+
+
+class SingleSecret(object):
+    def __init__(self, name, namespace, key):
+        self.name = name
+        self.namespace = namespace
+        self.key = key
 
 
 class Secret(KubeObj):
@@ -26,6 +34,14 @@ class Secret(KubeObj):
         'type': NonEmpty(String),
         'secrets': Map(String, String),
         }
+
+    def get_key(self, key):
+        if self._data['type'] != 'Opaque':
+            raise UserError(TypeError(
+                "Can't create key object from non-'Opaque' (Secret) secret type (this is {})".format(self._data['type'])))
+        if not key in self._data['secrets']:
+            raise UserError(KeyError("Key {} doesn't exist in secret".format(key)))
+        return SingleSecret(name=self._data['name'], namespace=self.namespace, key=key)
 
     def render(self):
         if len(self._data['secrets']) == 0:

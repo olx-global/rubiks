@@ -38,6 +38,7 @@ with namespace('kube-system'):
     ctr.resources.requests.cpu = 0.5
 
 with namespace('myapp'):
+    secret = Secret('myapp', secrets={'magic_token': Confidential('foo')})
     labels = {'app': 'myapp', 'deployenv': 'production'}
     ret = Deployment('myapp', replicas=5, minReadySeconds=10, revisionHistoryLimit=5,
                      selector=MatchLabelsSelector(matchLabels=labels),
@@ -57,8 +58,7 @@ with namespace('myapp'):
                                                      command=['java', '-server', '-jar', '-Dmyapp.threads=100', '/myapp.jar'],
                                                      ))
     ctr = ret.pod_template.containers[-1]
-    ctr.env.append(ContainerEnvSpec(name='MANAGEMENT_PORT', value='8081'))
-    ctr.env.append(ContainerEnvSecretSpec(name='MYAPP_MAGIC_SECRET', secret_name='myapp', key='magic_token'))
+    ctr.env = {'MANAGEMENT_PORT': '8081', 'MYAPP_MAGIC_SECRET': secret.get_key('magic_token')}
 
     ret = LoadBalancerService(name='myapp', selector=labels)
     ret.ports.append(ServicePort(name='https', protocol='TCP', port=443, targetPort=8080))

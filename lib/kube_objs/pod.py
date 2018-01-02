@@ -10,8 +10,10 @@ import copy
 
 from kube_obj import KubeBaseObj, KubeSubObj, order_dict
 from kube_types import *
+from .environment import *
 from .service_account import ServiceAccount
 from .secret import Secret, DockerCredentials
+from .mixins import EnvironmentPreProcessMixin
 
 
 class Memory(String):
@@ -72,50 +74,6 @@ class ContainerResourceSpec(KubeSubObj):
 
     def render(self):
         return self.renderer(order=('requests', 'limits'), return_none=True)
-
-
-class ContainerEnvBaseSpec(KubeSubObj):
-    _defaults = {
-        'name': '',
-        }
-
-    _types = {
-        'name': NonEmpty(String),
-        }
-
-
-class ContainerEnvSpec(ContainerEnvBaseSpec):
-    _defaults = {
-        'value': '',
-        }
-
-    _types = {
-        'value': NonEmpty(String),
-        }
-
-    def render(self):
-        return self.renderer(order=('name', 'value'))
-
-
-class ContainerEnvSecretSpec(ContainerEnvBaseSpec):
-    _defaults = {
-        'key': '',
-        'secret_name': '',
-        }
-
-    _types = {
-        'key': NonEmpty(String),
-        'secret_name': Identifier,
-        }
-
-    def render(self):
-        ret = OrderedDict()
-        ret['name'] = self._data['name']
-        sret = OrderedDict()
-        sret['key'] = self._data['key']
-        sret['name'] = self._data['secret_name']
-        ret['valueFrom'] = {'secretKeyRef': sret}
-        return ret
 
 
 class ContainerVolumeMountSpec(KubeSubObj):
@@ -182,6 +140,14 @@ class ContainerProbeTCPPortSpec(ContainerProbeBaseSpec):
         'port': Positive(NonZero(Integer)),
         }
 
+    def xf_port(self, v):
+        if String().do_check(v, None):
+            try:
+                return int(v)
+            except:
+                pass
+        return v
+
     def render_check(self):
         ret = self.renderer()
         if ret['port'] == 0:
@@ -201,6 +167,14 @@ class ContainerProbeHTTPSpec(ContainerProbeBaseSpec):
         'port': Positive(NonZero(Integer)),
         'scheme': Nullable(Enum('HTTP', 'HTTPS')),
         }
+
+    def xf_port(self, v):
+        if String().do_check(v, None):
+            try:
+                return int(v)
+            except:
+                pass
+        return v
 
     def render_check(self):
         ret = self.renderer(order=('scheme', 'port', 'path'))
@@ -282,7 +256,7 @@ class LifeCycle(KubeSubObj):
         return self.renderer()
 
 
-class ContainerSpec(KubeSubObj):
+class ContainerSpec(KubeSubObj, EnvironmentPreProcessMixin):
     identifier = 'name'
 
     _defaults = {
@@ -316,6 +290,32 @@ class ContainerSpec(KubeSubObj):
         'terminationMessagePath': Nullable(NonEmpty(Path)),
         'volumeMounts': Nullable(List(ContainerVolumeMountSpec)),
         }
+
+    def xf_env(self, v):
+        return self.fix_environment(v)
+
+    def xf_ports(self, v):
+        if v is None:
+            return v
+
+        if not isinstance(v, list):
+            v = [v]
+
+        ret = []
+
+        for vv in v:
+            if Integer().do_check(vv, None):
+                ret.append(ContainerPort(containerPort=vv, protocol='TCP'))
+            elif String().do_check(vv, None):
+                if '/' in vv:
+                    port, proto = vv.split('/', 1)
+                    ret.append(ContainerPort(containerPort=int(port), protocol=proto.upper()))
+                else:
+                    ret.append(ContainerPort(containerPort=int(vv), protocol='TCP'))
+            else:
+                ret.append(vv)
+
+        return ret
 
     def render(self):
         ret = self.renderer(zlen_ok=('securityContext',))

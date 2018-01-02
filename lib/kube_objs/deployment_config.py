@@ -7,8 +7,10 @@ from __future__ import unicode_literals
 
 from kube_obj import KubeObj, KubeSubObj, order_dict
 from kube_types import *
+from .environment import *
 from .pod import *
 from .selectors import *
+from .mixins import EnvironmentPreProcessMixin
 
 
 class DCBaseUpdateStrategy(KubeSubObj):
@@ -27,7 +29,7 @@ class DCBaseUpdateStrategy(KubeSubObj):
         }
 
 
-class DCCustomParams(KubeSubObj):
+class DCCustomParams(KubeSubObj, EnvironmentPreProcessMixin):
     _defaults = {
         'image': '',
         'command': [],
@@ -39,6 +41,9 @@ class DCCustomParams(KubeSubObj):
         'command': Nullable(List(String)),
         'environment': Nullable(List(ContainerEnvBaseSpec)),
         }
+
+    def xf_environment(self, v):
+        return self.fix_environment(self, v)
 
     def render(self):
         return self.renderer(order=('image', 'command', 'environment'))
@@ -83,7 +88,7 @@ class DCTagImages(KubeSubObj):
         return ret
 
 
-class DCLifecycleNewPod(KubeSubObj):
+class DCLifecycleNewPod(KubeSubObj, EnvironmentPreProcessMixin):
     _defaults = {
         'containerName': '',
         'command': [],
@@ -97,6 +102,9 @@ class DCLifecycleNewPod(KubeSubObj):
         'env': Nullable(List(ContainerEnvBaseSpec)),
         'volumes': Nullable(List(Identifier)),
         }
+
+    def xf_env(self, v):
+        return self.fix_environment(v)
 
     def render(self):
         return self.renderer(order=('container', 'command', 'env', 'volumes'))
