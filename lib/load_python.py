@@ -219,6 +219,14 @@ class PythonBaseFile(object):
         return self.module.__dict__[symname]
 
     def default_ns(self):
+        def _user_error(fn):
+            def internal_call(*args, **kwargs):
+                try:
+                    return fn(*args, **kwargs)
+                except Exception as e:
+                    raise UserError(e)
+            return internal_call
+
         def import_python(name, *exports, **kwargs):
             self.debug(3, '{}: import_python({}, ...)'.format(self.path.src_rel_path, name))
 
@@ -243,6 +251,7 @@ class PythonBaseFile(object):
         def yaml_dump(obj):
             return kube_yaml.yaml_safe_dump(obj, default_flow_style=False)
 
+        @_user_error
         def yaml_load(string):
             return kube_yaml.yaml_load(string)
 
@@ -259,9 +268,11 @@ class PythonBaseFile(object):
                 ret.args = args
                 return ret
 
+        @_user_error
         def json_load(string):
             return json.loads(string)
 
+        @_user_error
         def read_file(path, cant_read_ok=False):
             path = self.path.rel_path(path)
             try:
@@ -431,6 +442,10 @@ class PythonBaseFile(object):
                                 e.f_line = o._caller_line
                                 e.f_fn = o._caller_fn
                                 raise e
+        except SyntaxError:
+            raise
+        except UserError:
+            raise
         except Exception as e:
             if loader.DEV:
                 raise
