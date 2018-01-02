@@ -382,7 +382,7 @@ class PythonBaseFile(object):
                 try:
                     mod = do_compile_internal(
                         self, src,
-                        os.path.join(self.collection().repository.sources, self.path.src_rel_path),
+                        os.path.relpath(self.path.full_path),
                         self.path.dot_path(), self.path.full_path, ctx)
                 except UserError as e:
                     o_exc = sys.exc_info()
