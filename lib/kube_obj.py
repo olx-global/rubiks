@@ -59,6 +59,7 @@ class KubeBaseObj(object):
     _parent_types = None
     has_metadata = False
     _is_openshift = False
+    _always_regenerate = False
 
     def __init__(self, *args, **kwargs):
         # put the identifier in if it's specified

@@ -14,6 +14,7 @@ import var_types
 from kube_obj import KubeObj
 from kube_yaml import yaml_safe_dump
 from util import mkdir_p
+from user_error import UserError
 
 
 class RubiksOutputError(Exception):
@@ -156,7 +157,7 @@ class OutputCollection(object):
         else:
             orig_obj = ret[0] + ":" + orig_obj
 
-        raise RubiksOutputError("Duplicate (different) objects found: (orig) {}, (added) {}".format(orig_obj, new_obj))
+        raise UserError(RubiksOutputError("Duplicate (different) objects found: (orig) {}, (added) {}".format(orig_obj, new_obj)))
 
     def _check_for_dupes(self, op):
         if op.cluster is None:
@@ -233,7 +234,7 @@ class OutputMember(object):
         self.cached_yaml = yaml_safe_dump(self.cached_obj, default_flow_style=False)
 
     def write_file(self, path):
-        if not hasattr(self, 'cached_obj'):
+        if not hasattr(self, 'cached_obj') or self.kobj._always_regenerate:
             self.render()
 
         if self.cached_obj is None:

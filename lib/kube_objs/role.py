@@ -139,6 +139,8 @@ class RoleRef(KubeSubObj):
 
 
 class RoleBindingBase(KubeObj):
+    _always_regenerate = True
+
     _defaults = {
         'roleRef': RoleRef(),
         'subjects': [],
