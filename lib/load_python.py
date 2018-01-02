@@ -214,6 +214,22 @@ class PythonBaseFile(object):
             self.output_was_called = True
             return self.collection().add_output(val)
 
+        def yaml_dump(obj):
+            return yaml_safe_dump(obj, default_flow_style=False)
+
+        def json_dump(obj, expanded=True):
+            if expanded:
+                args = {'indent': 2}
+            else:
+                args = {'indent': None, 'separators': (',',':')}
+
+            try:
+                return json.dumps(obj, **args)
+            except TypeError:
+                ret = kube_vartypes.JSON(obj)
+                ret.args = args
+                return ret
+
         def cluster_context(clstr):
             class cluster_wrapper(object):
                 def __init__(self, clstr):
@@ -255,6 +271,9 @@ class PythonBaseFile(object):
 
             'import_python': import_python,
             'namespace': namespace,
+
+            'yaml_dump': yaml_dump,
+            'json_dump': json_dump,
 
             'output': output,
             }
