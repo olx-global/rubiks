@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from base64 import b64decode
 from collections import OrderedDict
 
 from kube_obj import KubeObj
@@ -35,6 +36,24 @@ class Secret(KubeObj):
         'secrets': Map(String, String),
         }
 
+    _parse = {
+        'secrets': ('data',),
+        }
+
+    def find_subparser(self, doc):
+        if 'type' not in doc or doc['type'] == 'Opaque':
+            return Secret
+        elif doc['type'] == 'kubernetes.io/dockercfg':
+            return DockerCredentials
+        elif doc['type'] == 'kubernetes.io/tls':
+            return TLSCredentials
+
+    def parser_fixup(self):
+        for k in list(self._data['secrets'].keys()):
+            if self._data['secrets'][k] == '':
+                continue
+            self._data['secrets'][k] = b64decode(self._data['secrets'][k])
+
     def get_key(self, key):
         if self._data['type'] != 'Opaque':
             raise UserError(TypeError(
@@ -62,6 +81,10 @@ class DockerCredentials(Secret):
     _types = {
         'dockers': Map(String, Map(String, String)),
         }
+
+    def parser_fixup(self):
+        Secret.parser_fixup(self)
+        # XXX fixup docker users and passwords here
 
     def render(self):
         if len(self._data['dockers']) == 0:
@@ -92,6 +115,13 @@ class TLSCredentials(Secret):
         'tls_cert': String,
         'tls_key': String,
         }
+
+    def parser_fixup(self):
+        Secret.parser_fixup(self)
+        if 'tls.crt' in self._data['secrets']:
+            self._data['tls_cert'] = self._data['secrets']['tls.crt']
+        if 'tls.key' in self._data['secrets']:
+            self._data['tls_key'] = self._data['secrets']['tls.key']
 
     def render(self):
         self._data['secrets'] = {'tls.crt': self._data['tls_cert'], 'tls.key': self._data['tls_key']}

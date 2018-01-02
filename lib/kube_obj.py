@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 
 import copy
 import traceback
+import sys
 from collections import OrderedDict
 
 from kube_types import *
@@ -41,6 +42,16 @@ class KubeObjNoNamespace(Exception):
     pass
 
 
+class KubeObjParseError(Exception):
+    def __init__(self, text, obj, input_doc):
+        Exception.__init__(self, text + ' parsing ' + obj.__class__.__name__)
+        self.obj = obj.__class__
+        self.doc = input_doc
+
+    def __repr__(self):
+        return '{}(obj={}, doc={})'.format(self.__class__.__name__, self.obj.__name__, repr(doc))
+
+
 class KubeTypeUnresolvable(Exception):
     pass
 
@@ -56,6 +67,9 @@ class KubeBaseObj(object):
     _defaults = {}
     _types = {}
     _map = {}
+    _parse = {}
+    _parse_default_base = None
+    _exclude = {}
     _parent_types = None
     has_metadata = False
     _is_openshift = False
@@ -388,6 +402,155 @@ class KubeBaseObj(object):
     def render(self):
         return None
 
+    def find_subparser(self, doc):
+        return self.__class__
+
+    def parser(self, doc):
+        if doc is None:
+            return None
+
+        if not isinstance(doc, dict):
+            raise UserError(KubeObjParseError('Expecting to parse objects as dicts', self, doc))
+
+        kls = self.find_subparser(doc)
+
+        if kls is None:
+            raise UserError(KubeObjParseError(
+                "Unable to identify correct subtype from {}".format(self.__class__.__name__), self, doc))
+
+        if kls is not self.__class__:
+            return kls().parser(doc)
+
+        mapping = self.__class__._find_defaults('_map')
+        self._data = self.__class__._find_defaults('_defaults')
+        for k in mapping:
+            self._data[k] = None
+
+        expl = {}
+
+        if self.has_metadata and 'metadata' in doc:
+            expl['metadata'] = {'labels': True, 'annotations': True}
+            if 'labels' in doc['metadata']:
+                self.labels = copy.deepcopy(doc['metadata']['labels'])
+            if 'annotations' in doc['metadata']:
+                self.annotations = copy.deepcopy(doc['metadata']['annotations'])
+        if hasattr(self, 'identifier') and self.identifier == 'name' and \
+                'metadata' in doc and 'name' in doc['metadata']:
+            self._data['name'] = doc['metadata']['name']
+            if 'metadata' not in expl:
+                expl['metadata'] = {}
+            expl['metadata'].update({'name': True})
+
+        if hasattr(self, 'apiVersion') and hasattr(self, 'kind'):
+            expl['apiVersion'] = True
+            if 'apiVersion' not in doc:
+                raise UserError(KubeObjParseError('Expected apiVersion - no apiVersion found', self, doc))
+
+            expl['kind'] = True
+            if 'kind' not in doc:
+                raise UserError(KubeObjParseError('Expected kind - no kind found', self, doc))
+
+        types = self.__class__.resolve_types()
+        parser = self.__class__._find_defaults('_parse')
+        exclude = self.__class__._find_defaults('_exclude')
+
+        if self.has_metadata:
+            exclude['.metadata.creationTimestamp'] = True
+
+        def do_parse(k, v):
+            if k in mapping:
+                o_typ = types[mapping[k]].original_type()
+            else:
+                o_typ = types[k].original_type()
+            if o_typ is None:
+                self._data[k] = copy.deepcopy(v)
+            elif isinstance(o_typ, list):
+                if isinstance(v, list):
+                    self._data[k] = []
+                    for el in v:
+                        self._data[k].append(o_typ[0]().parser(el))
+                else:
+                    self._data[k] = copy.deepcopy(v)
+            elif isinstance(o_typ, dict):
+                if isinstance(v, dict):
+                    self._data[k] = {}
+                    for kk in v:
+                        self._data[k][kk] = o_typ['value']().parser(v[kk])
+                else:
+                    self._data[k] = copy.deepcopy(v)
+            else:
+                self._data[k] = o_typ().parser(v)
+
+
+        if self._parse_default_base is not None:
+            for k in types:
+                if k not in parser:
+                    t = list(self._parse_default_base)
+                    t.append(k)
+                    parser[k] = tuple(t)
+
+            for k in mapping:
+                if k not in parser:
+                    t = list(self._parse_default_base)
+                    t.append(k)
+                    parser[k] = tuple(t)
+
+
+        for k in types:
+            if k not in parser and k in doc:
+                do_parse(k, doc[k])
+                expl[k] = True
+
+        for k in mapping:
+            if k not in parser and k in doc:
+                do_parse(k, doc[k])
+                expl[k] = True
+
+        for k in parser:
+            lcn = doc
+            elcn = expl
+            try:
+                for i in parser[k][:-1]:
+                    lcn = lcn[i]
+                    if i not in elcn:
+                        elcn[i] = {}
+                    elcn = elcn[i]
+                lcn = lcn[parser[k][-1]]
+            except:
+                lcn = None
+
+            if lcn is not None:
+                do_parse(k, lcn)
+                elcn[parser[k][-1]] = True
+
+        def rec_find_unparsed(expl, doc, path='.'):
+            ret = []
+            for k in doc:
+                if path == '.':
+                    npath = '.' + k
+                else:
+                    npath = path + '.' + k
+
+                if npath in exclude and exclude[npath]:
+                    continue
+
+                if k in expl:
+                    if isinstance(doc[k], dict) and isinstance(expl[k], dict):
+                        ret.extend(rec_find_unparsed(expl[k], doc[k], npath))
+                        continue
+                    elif expl[k] == True:
+                        continue
+                ret.append(npath)
+            return ret
+
+        for i in rec_find_unparsed(expl, doc):
+            print("Warning unparsed {}: {}".format(self.__class__.__name__, i), file=sys.stderr)
+
+        if hasattr(self, 'parser_fixup'):
+            self.parser_fixup()
+
+        return self
+
     def get_obj(self, prop, *args, **kwargs):
         types = self.__class__.resolve_types()
 
@@ -639,6 +802,14 @@ class KubeObj(KubeBaseObj):
     identifier = 'name'
     has_metadata = True
     _uses_namespace = True
+
+    _exclude = {
+        '.metadata.generation': True,
+        '.metadata.namespace': True,
+        '.metadata.resourceVersion': True,
+        '.metadata.selfLink': True,
+        '.metadata.uid': True,
+        }
 
     @classmethod
     def is_abstract_type(cls):

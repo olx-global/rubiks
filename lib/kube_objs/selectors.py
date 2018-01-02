@@ -11,7 +11,11 @@ from user_error import UserError
 
 
 class BaseSelector(KubeSubObj):
-    pass
+    def find_subparser(self, doc):
+        if 'matchLabels' in doc:
+            return MatchLabelsSelector
+        elif 'matchExpressions' in doc:
+            return MatchExpressionsSelector
 
 
 class MatchLabelsSelector(BaseSelector):

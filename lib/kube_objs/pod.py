@@ -93,6 +93,10 @@ class ContainerVolumeMountSpec(KubeSubObj):
         'readOnly': Nullable(Boolean),
         }
 
+    _parse = {
+        'path': ('mountPath',),
+        }
+
     def render(self):
         return self.renderer(order=('name', 'path', 'readOnly'), mapping={'path': 'mountPath'})
 
@@ -117,6 +121,12 @@ class ContainerProbeBaseSpec(KubeSubObj):
     @classmethod
     def is_abstract_type(cls):
         return not hasattr(cls, 'render_check')
+
+    def find_subparser(self, doc):
+        if 'tcpSocket' in doc:
+            return ContainerProbeTCPPortSpec
+        elif 'httpGet' in doc:
+            return ContainerProbeHTTPSpec
 
     def render(self):
         ret = order_dict({
@@ -148,6 +158,10 @@ class ContainerProbeTCPPortSpec(ContainerProbeBaseSpec):
         'port': Positive(NonZero(Integer)),
         }
 
+    _parse = {
+        'port': ('tcpSocket', 'port'),
+        }
+
     def xf_port(self, v):
         if String().do_check(v, None):
             try:
@@ -175,6 +189,13 @@ class ContainerProbeHTTPSpec(ContainerProbeBaseSpec):
         'path': NonEmpty(Path),
         'port': Positive(NonZero(Integer)),
         'scheme': Nullable(Enum('HTTP', 'HTTPS')),
+        }
+
+    _parse = {
+        'host': ('httpGet', 'host'),
+        'path': ('httpGet', 'path'),
+        'port': ('httpGet', 'port'),
+        'scheme': ('httpGet', 'scheme'),
         }
 
     def xf_port(self, v):
@@ -217,7 +238,11 @@ class SecurityContext(KubeSubObj):
 
 
 class LifeCycleProbe(KubeSubObj):
-    pass
+    def find_subparser(self, doc):
+        if 'exec' in doc:
+            return LifeCycleExec
+        elif 'httpGet' in doc:
+            return LifeCycleHTTP
 
 
 class LifeCycleExec(LifeCycleProbe):
@@ -229,11 +254,13 @@ class LifeCycleExec(LifeCycleProbe):
         'command': NonEmpty(List(String)),
         }
 
+    _parse_default_base = ('exec',)
+
     def render(self):
         return {'exec': self.renderer()}
 
 
-class LifeCycleHttp(LifeCycleProbe):
+class LifeCycleHTTP(LifeCycleProbe):
     _defaults = {
         'path': '',
         'port': 80,
@@ -245,6 +272,8 @@ class LifeCycleHttp(LifeCycleProbe):
         'port': Positive(NonZero(Integer)),
         'scheme': Nullable(Enum('HTTP', 'HTTPS')),
         }
+
+    _parse_default_base = ('httpGet',)
 
     def render(self):
         ret = self.renderer(order=('scheme', 'port', 'path'))
@@ -363,6 +392,18 @@ class PodVolumeBaseSpec(KubeSubObj):
         'name': Identifier,
         }
 
+    def find_subparser(self, doc):
+        if 'hostPath' in doc:
+            return PodVolumeHostSpec
+        elif 'configMap' in doc:
+            return PodVolumeConfigMapSpec
+        elif 'secret' in doc:
+            return PodVolumeSecretSpec
+        elif 'persistentVolumeClaim' in doc:
+            return PodVolumePVCSpec
+        elif 'emptyDir' in doc:
+            return PodVolumeEmptyDirSpec
+
 
 class PodVolumeHostSpec(PodVolumeBaseSpec):
     _defaults = {
@@ -371,6 +412,10 @@ class PodVolumeHostSpec(PodVolumeBaseSpec):
 
     _types = {
         'path': String,
+        }
+
+    _parse = {
+        'path': ('hostPath', 'path'),
         }
 
     def render(self):
@@ -391,6 +436,12 @@ class PodVolumeConfigMapSpec(PodVolumeBaseSpec):
         'defaultMode': Nullable(Positive(Integer)),
         'map_name': Identifier,
         'item_map': Nullable(Map(String, String)),
+        }
+
+    _parse = {
+        'defaultMode': ('configMap', 'defaultMode'),
+        'map_name': ('configMap', 'name'),
+        'item_map': ('configMap', 'items'),
         }
 
     def render(self):
@@ -423,6 +474,12 @@ class PodVolumeSecretSpec(PodVolumeBaseSpec):
         'item_map': Nullable(Map(String, String)),
         }
 
+    _parse = {
+        'defaultMode': ('secret', 'defaultMode'),
+        'map_name': ('secret', 'secretName'),
+        'item_map': ('secret', 'items'),
+        }
+
     def render(self):
         ret = OrderedDict(name=self._data['name'])
         ret['secret'] = OrderedDict(secretName=self._data['secret_name'])
@@ -449,6 +506,10 @@ class PodVolumePVCSpec(PodVolumeBaseSpec):
         'claimName': Identifier,
         }
 
+    _parse = {
+        'claimName': ('persistentVolumeClaim', 'claimName'),
+        }
+
     def render(self):
         ret = OrderedDict(name=self._data['name'])
         ret['persistentVolumeClaim'] = {'claimName': self._data['claimName']}
@@ -456,6 +517,10 @@ class PodVolumePVCSpec(PodVolumeBaseSpec):
 
 
 class PodVolumeEmptyDirSpec(PodVolumeBaseSpec):
+    _exclude = {
+        '.emptyDir': True,
+        }
+
     def render(self):
         return order_dict({'name': self._data['name'], 'emptyDir': {}}, ('name',))
 
@@ -509,6 +574,11 @@ class PodTemplateSpec(KubeSubObj):
 
     _map = {
         'serviceAccount': 'serviceAccountName',
+        }
+
+    _parse_default_base = ('spec',)
+    _parse = {
+        'name': ('metadata', 'name'),
         }
 
     def xf_imagePullSecrets(self, v):

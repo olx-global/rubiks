@@ -25,6 +25,15 @@ class DaemonSet(KubeObj, SelectorsPreProcessMixin):
         'selector': Nullable(BaseSelector),
         }
 
+    _parse = {
+        'pod_template': ('spec', 'template'),
+        'selector': ('spec', 'selector'),
+        }
+
+    _exclude = {
+        '.status': True,
+        }
+
     def xf_selector(self, v):
         return self.fix_selectors(v)
 

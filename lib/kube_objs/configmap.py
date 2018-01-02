@@ -22,6 +22,10 @@ class ConfigMap(KubeObj):
         'files': Map(String, String),
         }
 
+    _parse = {
+        'files': ('data',),
+        }
+
     def render(self):
         if len(self._data['files']) == 0:
             return None
