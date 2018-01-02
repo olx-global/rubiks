@@ -281,7 +281,7 @@ class ConfidentialOutput(object):
     def __enter__(self):
         return self
 
-    def __exit__(self, etyp, eval, etb):
+    def __exit__(self, etyp, evalue, etb):
         self.generate()
         return False
 
@@ -292,7 +292,7 @@ class ConfidentialOutputHidden(ConfidentialOutput):
         var_types.VarContext.show_confidential = False
         return self
 
-    def __exit__(self, etyp, eval, etb):
+    def __exit__(self, etyp, evalue, etb):
         var_types.VarContext.show_confidential = self.show_confidential
         self.generate()
         return False

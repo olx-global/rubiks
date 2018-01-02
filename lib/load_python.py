@@ -239,7 +239,7 @@ class PythonBaseFile(object):
                     self.save_cluster = KubeBaseObj._default_cluster
                     KubeBaseObj._default_cluster = self.cluster
 
-                def __exit__(self, etyp, eval, etb):
+                def __exit__(self, etyp, evalue, etb):
                     KubeBaseObj._default_cluster = self.save_cluster
                     return False
 
@@ -254,7 +254,7 @@ class PythonBaseFile(object):
                     self.save_ns = KubeBaseObj._default_ns
                     KubeBaseObj._default_ns = self.ns
 
-                def __exit__(self, etyp, eval, etb):
+                def __exit__(self, etyp, evalue, etb):
                     KubeBaseObj._default_ns = self.save_ns
                     return False
 
