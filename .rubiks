@@ -2,6 +2,7 @@
 sources = test/src
 outputs = test/out
 pythonpath = test/lib
+confidentiality_mode = gitignore-single
 
 [cluster_staging]
 prod_state = staging

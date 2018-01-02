@@ -15,7 +15,7 @@ class _VarContext(object):
     def __init__(self):
         self.values = {}
         self.current_context = None
-        self.show_confidential = False
+        self.show_confidential = True
 
 VarContext = _VarContext()
 

@@ -6,15 +6,19 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 import os
+import sys
 import weakref
 
 import kube_objs
+import var_types
 from kube_obj import KubeObj
 from kube_yaml import yaml_safe_dump
 from util import mkdir_p
 
+
 class RubiksOutputError(Exception):
     pass
+
 
 class OutputCollection(object):
     def __init__(self, loader, repository):
@@ -23,6 +27,34 @@ class OutputCollection(object):
         self.clustered = {}
         self.cluster_mode = (len(self.repository.get_clusters()) != 0)
         self.loader = weakref.ref(loader)
+        self.set_confidentiality_mode()
+
+    def set_confidentiality_mode(self):
+        self.confidential = ConfidentialOutput
+        if hasattr(self.repository, 'confidentiality_mode') and self.repository.confidentiality_mode is not None:
+            c_mode = self.repository.confidentiality_mode.lower()
+            if c_mode not in ('gitignore', 'git-crypt', 'gitcrypt', 'no', 'none', 'hide', 'hidden',
+                              'one-gitignore', 'single-gitignore', 'singlegitignore', 'gitignore-single',
+                              'one-gitcrypt', 'single-gitcrypt', 'singlegitcrypt', 'git-crypt-single', 'gitcrypt-single'
+                              ):
+                print("WARNING: invalid repository configuration {}, ".format(repository.confidentiality_mode),
+                      "should be one of 'gitignore(-single)', 'git-crypt(-single)', 'none', 'hidden'", file=sys.stderr)
+
+            elif c_mode in ('git-crypt', 'gitcrypt'):
+                self.confidential = ConfidentialOutputGitCrypt
+
+            elif c_mode in ('one-gitcrypt', 'single-gitcrypt', 'singlegitcrypt', 'git-crypt-single', 'gitcrypt-single'):
+                self.confidential = ConfidentialOutputSingleGitCrypt
+
+            elif c_mode in ('gitignore',):
+                self.confidential = ConfidentialOutputGitIgnore
+
+            elif c_mode in ('one-gitignore', 'single-gitignore', 'singlegitignore', 'gitignore-single'):
+                self.confidential = ConfidentialOutputSingleGitIgnore
+
+            elif c_mode in ('hide', 'hidden'):
+                self.confidential = ConfidentialOutputHidden
+        self.debug(2, 'Set confidentiality mode to {}'.format(self.confidential.__name__))
 
     def debug(self, *args, **kwargs):
         self.loader().debug(*args, **kwargs)
@@ -68,39 +100,44 @@ class OutputCollection(object):
             self._write_output_clusterless()
 
     def _write_output_clustered(self):
-        for c in self.repository.get_clusters():
-            path = os.path.join(self.base, c)
-            mkdir_p(path)
+        with self.confidential(self.base) as confidential:
+            for c in self.repository.get_clusters():
+                path = os.path.join(self.base, c)
+                mkdir_p(path)
 
-            ns_done = set()
-            for ns in self.clusterless:
-                ns_done.add(ns)
-                outputs = []
-                outputs.extend(self.clusterless[ns].values())
-                if c in self.clustered and ns in self.clustered[c]:
-                    outputs.extend(self.clustered[c][ns].values())
+                ns_done = set()
+                for ns in self.clusterless:
+                    ns_done.add(ns)
+                    outputs = []
+                    outputs.extend(self.clusterless[ns].values())
+                    if c in self.clustered and ns in self.clustered[c]:
+                        outputs.extend(self.clustered[c][ns].values())
 
-                if any(map(lambda x: x.has_data() and not x.is_namespace, outputs)):
-                    for op in outputs:
-                        op.write_file(path)
+                    if any(map(lambda x: x.has_data() and not x.is_namespace, outputs)):
+                        for op in outputs:
+                            op.write_file(path)
+                            confidential.add_file(op)
 
-            if not c in self.clustered:
-                continue
-
-            for ns in self.clustered[c]:
-                if ns in ns_done:
+                if not c in self.clustered:
                     continue
 
-                if any(map(lambda x: x.has_data() and not x.is_namespace, self.clustered[c][ns].values())):
-                    for op in self.clustered[c][ns].values():
-                        op.write_file(path)
+                for ns in self.clustered[c]:
+                    if ns in ns_done:
+                        continue
+
+                    if any(map(lambda x: x.has_data() and not x.is_namespace, self.clustered[c][ns].values())):
+                        for op in self.clustered[c][ns].values():
+                            op.write_file(path)
+                            confidential.add_file(op)
 
     def _write_output_clusterless(self):
         mkdir_p(self.base)
-        for ns in self.clusterless:
-            if any(map(lambda x: x.has_data() and not x.is_namespace, self.clusterless[ns].values())):
-                for op in self.clusterless[ns].values():
-                    op.write_file(self.base)
+        with self.confidential(self.base) as confidential:
+            for ns in self.clusterless:
+                if any(map(lambda x: x.has_data() and not x.is_namespace, self.clusterless[ns].values())):
+                    for op in self.clusterless[ns].values():
+                        op.write_file(self.base)
+                        confidential.add_file(op)
 
     def check_for_dupes(self, op):
         ret = self._check_for_dupes(op)
@@ -158,6 +195,7 @@ class OutputCollection(object):
 
         return None
 
+
 class OutputMember(object):
     def __init__(self, coll, kobj, cluster):
         self.kobj = kobj
@@ -213,7 +251,130 @@ class OutputMember(object):
 
         self.debug(3, "writing file {}/{}".format(self.filedir, self.filename))
 
+        sav_context = var_types.VarContext.current_context
+        var_types.VarContext.current_context = {'confidential': False}
+        try:
+            content = str(self.cached_yaml)
+            self.is_confidential = var_types.VarContext.current_context['confidential']
+        finally:
+            var_types.VarContext.current_context = sav_context
+
+        if self.is_confidential:
+            self.debug(3, "  file {}/{} is confidential".format(self.filedir, self.filename))
+
         with open(os.path.join(path, '.' + self.identifier + '.tmp'), 'w') as f:
-            f.write(str(self.cached_yaml))
+            f.write(content)
         os.rename(os.path.join(path, '.' + self.identifier + '.tmp'),
                   os.path.join(path, self.filename))
+
+
+class ConfidentialOutput(object):
+    def __init__(self, basedir):
+        pass
+
+    def add_file(self, output_file):
+        pass
+
+    def generate(self):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, etyp, eval, etb):
+        self.generate()
+        return False
+
+
+class ConfidentialOutputHidden(ConfidentialOutput):
+    def __enter__(self):
+        self.show_confidential = var_types.VarContext.show_confidential
+        var_types.VarContext.show_confidential = False
+        return self
+
+    def __exit__(self, etyp, eval, etb):
+        var_types.VarContext.show_confidential = self.show_confidential
+        self.generate()
+        return False
+
+
+class ConfidentialOutputGitMgmt(ConfidentialOutput):
+    line = '# --- rubiks managed, do not edit below this line ---'
+    single = False
+
+    def __init__(self, basedir):
+        self.gitmgmt = {}
+        self.basedir = basedir
+
+    def add_file(self, output_file):
+        if output_file.is_confidential:
+            if output_file.filedir not in self.gitmgmt:
+                self.gitmgmt[output_file.filedir] = set()
+            self.gitmgmt[output_file.filedir].add(output_file.filename)
+
+    def gen_line(self, f):
+        return f
+
+    def generate(self):
+        if not self.single:
+            return generate_multi()
+
+        try:
+            with open(os.path.join(self.basedir, self.file)):
+                lines = f.read().splitlines()
+        except:
+            lines = []
+
+        try:
+            lines = lines[:lines.index(self.line)]
+        except ValueError:
+            pass
+
+        lines.append(self.line)
+
+        for gmp in self.gitmgmt:
+            relpath = os.path.relpath(gmp, self.basedir)
+            assert not relpath.startswith('../')
+            lines.extend(map(lambda x: self.gen_line('/' + relpath + '/' + x), sorted(self.gitmgmt[gmp])))
+
+        with open(os.path.join(self.basedir, self.file + '.tmp'), 'w') as f:
+            f.write('\n'.join(lines) + '\n')
+        os.rename(os.path.join(self.basedir, self.file + '.tmp'), os.path.join(self.basedir, self.file))
+
+    def generate_multi(self):
+        for gmp in self.gitmgmt:
+            try:
+                with open(os.path.join(gmp, self.file)) as f:
+                    lines = f.read().splitlines()
+            except:
+                lines = []
+
+            try:
+                lines = lines[:lines.index(self.line)]
+            except ValueError:
+                pass
+
+            lines.append(self.line)
+            lines.extend(map(lambda x: self.gen_line('/' + x), sorted(self.gitmgmt[gmp])))
+
+            with open(os.path.join(gmp, self.file + '.tmp'), 'w') as f:
+                f.write('\n'.join(lines) + '\n')
+            os.rename(os.path.join(gmp, self.file + '.tmp'), os.path.join(gmp, self.file))
+
+class ConfidentialOutputGitIgnore(ConfidentialOutputGitMgmt):
+    file = '.gitignore'
+
+
+class ConfidentialOutputSingleGitIgnore(ConfidentialOutputGitIgnore):
+    single = True
+
+
+class ConfidentialOutputGitCrypt(ConfidentialOutputGitMgmt):
+    file = '.gitattributes'
+
+    def gen_line(self, f):
+        return f + ' diff=git-crypt filter=git-crypt'
+
+
+class ConfidentialOutputSingleGitCrypt(ConfidentialOutputGitCrypt):
+    single = True

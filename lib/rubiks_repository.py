@@ -55,6 +55,7 @@ class RubiksRepository(repository.Repository):
         self.pythonpath = []
         self.clusters = {}
         self.is_openshift = False
+        self.confidentiality_mode = None
         if os.path.exists(os.path.join(self.basepath, '.rubiks')):
             m_cp = ConfigParser()
             m_cp.read(os.path.join(self.basepath, '.rubiks'))
@@ -67,6 +68,8 @@ class RubiksRepository(repository.Repository):
                 if m_cp.has_option('layout', 'pythonpath'):
                     self.pythonpath = list(map(lambda x: os.path.join(self.basepath, x.strip()),
                                                m_cp.get('layout', 'pythonpath', raw=True).split(',')))
+                if m_cp.has_option('layout', 'confidentiality_mode'):
+                    self.confidentiality_mode = m_cp.get('layout', 'confidentiality_mode', raw=True)
             for s in m_cp.sections():
                 if s.startswith('cluster_'):
                     self.clusters[s[8:]] = ClusterInfo(s[8:], m_cp, s)
