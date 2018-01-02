@@ -22,7 +22,7 @@ A .rubiks file is a .ini file with several sections and options
 - `confidentiality_mode` _(default `none`)_ what to do when files have confidential
   markers in them
   - `none` do nothing
-  - `hidden` replace confidential values with "*** HIDDEN ***"
+  - `hidden` replace confidential values with "\*\*\* HIDDEN \*\*\*"
   - `gitignore` add output filename to a `.gitignore` in the same output directory
     as the file
   - `git-crypt` add output filename to a `.gitattributes` file in the same output

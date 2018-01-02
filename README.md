@@ -14,7 +14,7 @@ search path (`$PATH`). Then you should be able to do rubiks help to get a list o
 
 ## Using Rubiks
 
-Rubiks is designed to point at a [Rubiks Repository](Rubiks%20repositories%20and%20the%20.rubiks%20file.md),
+Rubiks is designed to point at a [Rubiks Repository](docs/Rubiks%20repositories%20and%20the%20.rubiks%20file.md),
 which is just a repository with some possible rubiks configuration (in the form of a .rubiks
 file in the repository root), and some rubiks source files.
 
