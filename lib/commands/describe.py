@@ -20,20 +20,71 @@ class Command_describe(Command):
         objs = load_python.PythonBaseFile.get_kube_objs()
 
         found = False
+        obj = None
 
         for sname in args.objects:
-            this_found = False
+            ss = sname.split('.')
+
             for oname in objs:
-                if oname.lower() == sname.lower():
+                if oname.lower() == ss[0].lower():
+                    obj = objs[oname]
+                    break
+
+            if obj is None:
+                sys.stdout.flush()
+                print("No matching object for type {} ({})\n".format(sname, ss[0]), file=sys.stderr)
+
+            else:
+                use_obj = True
+                if len(ss) > 1:
+                    use_obj = False
+
+                    for i in range(1, len(ss)):
+                        comp = ss[i]
+                        mapping = obj._find_defaults('_map')
+                        if comp in mapping:
+                            comp = mapping[comp]
+                        types = obj.resolve_types()
+
+                        if comp not in types:
+                            sys.stdout.flush()
+                            print("No matching object for type {} ({})\n".format(sname, '.'.join(ss[0:i + 1])), file=sys.stderr)
+                            break
+
+                        if types[comp].original_type() is not None:
+                            obj = types[comp].original_type()
+
+                            if isinstance(obj, list):
+                                obj = obj[0]
+                            elif isinstance(obj, dict):
+                                obj = obj['value']
+
+                            if 1 + i == len(ss):
+                                use_obj = True
+
+                        elif i + 1 != len(ss):
+                            if found:
+                                print('', file=sys.stdout)
+                            found = True
+                            print('.'.join(ss[0:i + 1]) + ':', file=sys.stdout)
+                            print(types[comp].name(), file=sys.stdout)
+                            sys.stdout.flush()
+                            print("No matching object for type {} ({})\n".format(sname, '.'.join(ss[0:i + 2])), file=sys.stderr)
+                            break
+
+                        else:
+                            if found:
+                                print('', file=sys.stdout)
+                            found = True
+                            print('.'.join(ss[0:i + 1]) + ':', file=sys.stdout)
+                            print(types[comp].name(), file=sys.stdout)
+
+                if use_obj:
                     if found:
                         print('', file=sys.stdout)
                     found = True
-                    this_found = True
-                    print(objs[oname].get_help(), file=sys.stdout)
-                    break
-            if not this_found:
-                sys.stdout.flush()
-                print("No matching object for type {}\n".format(sname), file=sys.stderr)
+                    print('.'.join(ss[0:]) + ':', file=sys.stdout)
+                    print(obj.get_help(), file=sys.stdout)
 
         if not found:
             return 1
