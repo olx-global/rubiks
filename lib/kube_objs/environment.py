@@ -24,11 +24,14 @@ class ContainerEnvSpec(ContainerEnvBaseSpec):
         }
 
     _types = {
-        'value': NonEmpty(String),
+        'value': String,
         }
 
     def render(self):
-        return self.renderer(order=('name', 'value'))
+        ret = self.renderer(order=('name', 'value'))
+        if ret['value'] == '':
+            del ret['value']
+        return ret
 
 
 class ContainerEnvSecretSpec(ContainerEnvBaseSpec):

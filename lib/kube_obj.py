@@ -48,7 +48,7 @@ class KubeTypeUnresolvable(Exception):
 class KubeBaseObj(object):
     _default_ns = 'default'
     _default_cluster = None
-    _uses_namespace = True
+    _uses_namespace = False
     _defaults = {}
     _types = {}
     _map = {}
@@ -625,6 +625,7 @@ class KubeBaseObj(object):
 class KubeObj(KubeBaseObj):
     identifier = 'name'
     has_metadata = True
+    _uses_namespace = True
 
     @classmethod
     def is_abstract_type(cls):

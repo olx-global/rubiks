@@ -16,8 +16,10 @@ class AWSVolID(String):
     validation_text = 'Expected amazon volume id'
 
     def do_check(self, value, path):
-        if not String.do_check(self, value, path):
+        if not String().do_check(self, value, path):
             return False
+        if value.startswith('aws://'):
+            value = value.split('/')[-1]
         if not value.startswith('vol-'):
             return False
         if len(value) == 4:
@@ -69,6 +71,7 @@ class PersistentVolume(KubeObj):
     apiVersion = 'v1'
     kind = 'PersistentVolume'
     kubectltype = 'persistentvolume'
+    _uses_namespace = False
 
     _defaults = {
         'accessModes': ['ReadWriteOnce'],
@@ -100,7 +103,6 @@ class PersistentVolumeClaim(KubeObj):
     apiVersion = 'v1'
     kind = 'PersistentVolumeClaim'
     kubectltype = 'persistentvolumeclaim'
-    _output_order = 40
 
     _defaults = {
         'accessModes': ['ReadWriteOnce'],
@@ -115,6 +117,11 @@ class PersistentVolumeClaim(KubeObj):
         'selector': Nullable(BaseSelector),
         'volumeName': Nullable(Identifier),
         }
+
+    def xf_volumeName(self, v):
+        if isinstance(v, PersistentVolume):
+            return v.name
+        return v
 
     def render(self):
         ret = self.renderer(return_none=True)

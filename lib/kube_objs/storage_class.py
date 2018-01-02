@@ -13,6 +13,7 @@ class StorageClass(KubeObj):
     apiVersion = 'storage.k8s.io/v1beta1'
     kind = 'StorageClass'
     kubectltype = 'storageclass'
+    _uses_namespace = False
 
     _defaults = {
         'provisioner': None,

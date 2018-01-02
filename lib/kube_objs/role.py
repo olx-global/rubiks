@@ -131,7 +131,7 @@ class RoleRef(KubeSubObj):
         }
 
     _types = {
-        'name': Nullable(Identifier),
+        'name': Nullable(SystemIdentifier),
         }
 
     def render(self):

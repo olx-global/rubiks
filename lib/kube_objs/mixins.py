@@ -7,6 +7,9 @@ from __future__ import unicode_literals
 
 from .environment import *
 from .secret import SingleSecret
+from .selectors import *
+from kube_types import *
+
 
 class EnvironmentPreProcessMixin(object):
     def fix_environment(self, env):
@@ -38,3 +41,13 @@ class EnvironmentPreProcessMixin(object):
             return None
 
         return ret
+
+
+class SelectorsPreProcessMixin(object):
+    def fix_selectors(self, sel):
+        try:
+            Map(String, String).check(sel, None)
+            return MatchLabelsSelector(matchLabels=sel)
+        except:
+            pass
+        return sel

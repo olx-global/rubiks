@@ -34,12 +34,14 @@ class Memory(String):
 class ContainerPort(KubeSubObj):
     _defaults = {
         'containerPort': 80,
+        'hostPort': None,
         'name': None,
         'protocol': 'TCP',
         }
 
     _types = {
         'containerPort': Positive(NonZero(Integer)),
+        'hostPort': Nullable(Positive(NonZero(Integer))),
         'name': Nullable(String),
         'protocol': Enum('TCP', 'UDP'),
         }
@@ -48,7 +50,9 @@ class ContainerPort(KubeSubObj):
         ret = copy.deepcopy(self._data)
         if ret['name'] is None:
             del ret['name']
-        return order_dict(ret, ('name', 'containerPort', 'protocol'))
+        if ret['hostPort'] is None:
+            del ret['hostPort']
+        return order_dict(ret, ('name', 'containerPort', 'hostPort', 'protocol'))
 
 
 class ContainerResourceEachSpec(KubeSubObj):
@@ -95,17 +99,19 @@ class ContainerVolumeMountSpec(KubeSubObj):
 
 class ContainerProbeBaseSpec(KubeSubObj):
     _defaults = {
-        'initialDelaySeconds': 0,
+        'initialDelaySeconds': None,
         'periodSeconds': None,
         'timeoutSeconds': None,
         'failureThreshold': None,
+        'successThreshold': None,
         }
 
     _types = {
-        'initialDelaySeconds': Positive(Integer),
+        'initialDelaySeconds': Nullable(Positive(Integer)),
         'periodSeconds': Nullable(Positive(NonZero(Integer))),
         'timeoutSeconds': Nullable(Positive(NonZero(Integer))),
         'failureThreshold': Nullable(Positive(NonZero(Integer))),
+        'successThreshold': Nullable(Positive(NonZero(Integer))),
         }
 
     @classmethod
@@ -118,7 +124,9 @@ class ContainerProbeBaseSpec(KubeSubObj):
             'timeoutSeconds': self._data['timeoutSeconds'],
             'periodSeconds': self._data['periodSeconds'],
             'failureThreshold': self._data['failureThreshold'],
-            }, ('initialDelaySeconds', 'timeoutSeconds', 'periodSeconds', 'failureThreshold'))
+            'successThreshold': self._data['successThreshold'],
+            }, ('initialDelaySeconds', 'timeoutSeconds', 'periodSeconds',
+                'successThreshold', 'failureThreshold'))
 
         if not hasattr(self, 'render_check'):
             return None
@@ -149,20 +157,21 @@ class ContainerProbeTCPPortSpec(ContainerProbeBaseSpec):
         return v
 
     def render_check(self):
-        ret = self.renderer()
-        if ret['port'] == 0:
+        if self._data['port'] == 0:
             return None
-        return {'tcpSocket': ret}
+        return {'tcpSocket': {'port': self._data['port']}}
 
 
 class ContainerProbeHTTPSpec(ContainerProbeBaseSpec):
     _defaults = {
+        'host': None,
         'path': '',
         'port': 80,
         'scheme': None,
         }
 
     _types = {
+        'host': Nullable(Domain),
         'path': NonEmpty(Path),
         'port': Positive(NonZero(Integer)),
         'scheme': Nullable(Enum('HTTP', 'HTTPS')),
@@ -177,9 +186,12 @@ class ContainerProbeHTTPSpec(ContainerProbeBaseSpec):
         return v
 
     def render_check(self):
-        ret = self.renderer(order=('scheme', 'port', 'path'))
-        if ret['port'] == 0:
+        if self._data['port'] == 0:
             return None
+        ret = OrderedDict()
+        for r in ('scheme', 'host', 'port', 'path'):
+            if self._data[r] is not None:
+                ret[r] = self._data[r]
         return {'httpGet': ret}
 
 
@@ -262,6 +274,7 @@ class ContainerSpec(KubeSubObj, EnvironmentPreProcessMixin):
     _defaults = {
         'image': '',
         'command': None,
+        'args': None,
         'env': [],
         'imagePullPolicy': None,
         'kind': None,
@@ -278,6 +291,7 @@ class ContainerSpec(KubeSubObj, EnvironmentPreProcessMixin):
     _types = {
         'image': NonEmpty(String),
         'command': Nullable(List(String)),
+        'args': Nullable(List(String)),
         'env': Nullable(List(ContainerEnvBaseSpec)),
         'imagePullPolicy': Nullable(Enum('Always', 'IfNotPresent')),
         'kind': Nullable(Enum('DockerImage')),
@@ -317,15 +331,25 @@ class ContainerSpec(KubeSubObj, EnvironmentPreProcessMixin):
 
         return ret
 
+    def xf_volumeMounts(self, v):
+        if isinstance(v, dict):
+            ret = []
+            for vv in sorted(v.keys()):
+                ret.append(ContainerVolumeMountSpec(name=vv, path=v[vv]))
+            return ret
+        return v
+
     def render(self):
         ret = self.renderer(zlen_ok=('securityContext',))
 
         if 'command' in ret and len(ret['command']) > 0:
-            cmd = ret['command']
-            ret['command'] = [cmd[0]]
-            ret['args'] = cmd[1:]
+            if 'args' not in ret or len(ret['args']) == 0:
+                cmd = ret['command']
+                ret['command'] = [cmd[0]]
+                ret['args'] = cmd[1:]
         else:
-            del ret['command']
+            if 'command' in ret:
+                del ret['command']
 
         return order_dict(ret, ('name', 'kind', 'image', 'command', 'args', 'env', 'ports'))
 
@@ -350,7 +374,10 @@ class PodVolumeHostSpec(PodVolumeBaseSpec):
         }
 
     def render(self):
-        return self.renderer(mapping={'path': 'hostPath'}, order=('name',))
+        ret = self.renderer()
+        r = OrderedDict(name=ret['name'])
+        r['hostPath'] = {'path': ret['path']}
+        return r
 
 
 class PodVolumeConfigMapSpec(PodVolumeBaseSpec):
@@ -411,6 +438,26 @@ class PodVolumeSecretSpec(PodVolumeBaseSpec):
                 ret['secret']['items'].append(r)
 
         return ret
+
+
+class PodVolumePVCSpec(PodVolumeBaseSpec):
+    _defaults = {
+        'claimName': '',
+        }
+
+    _types = {
+        'claimName': Identifier,
+        }
+
+    def render(self):
+        ret = OrderedDict(name=self._data['name'])
+        ret['persistentVolumeClaim'] = {'claimName': self._data['claimName']}
+        return ret
+
+
+class PodVolumeEmptyDirSpec(PodVolumeBaseSpec):
+    def render(self):
+        return order_dict({'name': self._data['name'], 'emptyDir': {}}, ('name',))
 
 
 class PodImagePullSecret(KubeSubObj):
@@ -489,5 +536,5 @@ class PodTemplateSpec(KubeSubObj):
     def render(self):
         ret = self.renderer(zlen_ok=('securityContext',), order=('containers',), mapping={'name': None})
         if self._data['name'] is not None:
-            return {'metadata': {'labels': {'name': self._data['name']}}, 'spec': ret}
+            return {'metadata': {'name': self._data['name']}, 'spec': ret}
         return {'spec': ret}

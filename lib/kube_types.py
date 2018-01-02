@@ -252,6 +252,8 @@ class Domain(String):
             return False
         if IPv4().do_check(value, path):
             return True
+        if value == 'localhost':
+            return True
         dm = value.split('.')
         if len(dm) < 2:
             return False
