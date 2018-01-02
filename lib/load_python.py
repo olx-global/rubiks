@@ -123,10 +123,13 @@ class PythonFileCollection(loader.Loader):
         if 'import_as' in kwargs:
             del kwargs['import_as']
 
-        new_context = self.get_file_context(path)
+        try:
+            new_context = self.get_file_context(path)
 
-        self.import_symbols(name, new_context.path, py_context.path, basename,
-                            new_context, py_context._current_module, exports, **kwargs)
+            self.import_symbols(name, new_context.path, py_context.path, basename,
+                                new_context, py_context._current_module, exports, **kwargs)
+        except loader.LoaderBaseException as e:
+            raise UserError(e)
 
         self.add_dep(py_context.path, path)
 
