@@ -12,6 +12,7 @@ import subprocess
 import sys
 
 from user_error import UserError
+import kube_yaml
 import var_types
 
 
@@ -38,6 +39,14 @@ class JSON(var_types.VarEntity):
                 return str(obj)
             raise TypeError("Unknown type for object {}".format(repr(obj)))
         return json.JSONEncoder(default=_default_json, **(self.args)).encode(self.value)
+
+
+class YAML(var_types.VarEntity):
+    def init(self, value):
+        self.value = value
+
+    def to_string(self):
+        return str(kube_yaml.yaml_safe_dump(self.value, default_flow_style=False))
 
 
 class Confidential(var_types.VarEntity):
