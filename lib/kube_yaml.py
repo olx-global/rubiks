@@ -10,14 +10,19 @@ import sys
 import yaml
 from var_types import VarEntity
 
-__all__ = ['quoted', 'literal', 'yaml_safe_dump']
+try:
+    from io import StringIO
+except ImportError:
+    from StringIO import StringIO
+
+__all__ = ['quoted', 'literal', 'yaml_safe_dump', 'yaml_load']
 
 # This file is very magical, allowing for a few deep dives in the inner workings of the pyyaml
 # and in particular, allowing us to do proper lazy evaluation of our VarEntities
 
 class FakeStringIO(object):
-    def __init__(self):
-        self.t = ''
+    def __init__(self, t=''):
+        self.t = t
 
     def write(self, text):
         self.t = self.t + text
@@ -131,3 +136,6 @@ def yaml_dump(*args, **kwargs):
     kwargs['Dumper'] = BlockDumper
     yaml.dump(*args, **kwargs)
     return stream.get_value()
+
+def yaml_load(string):
+    return yaml.load(StringIO(string))

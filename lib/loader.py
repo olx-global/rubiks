@@ -54,6 +54,7 @@ class Path(object):
                                               self.full_path, self.srcsdir))
 
         self.full_dir = os.path.split(self.full_path)[0]
+        self.repo_rel_dir = os.path.split(self.repo_rel_path)[0]
         self.src_rel_dir = os.path.split(self.src_rel_path)[0]
 
         self.filename = os.path.split(self.full_path)[1]

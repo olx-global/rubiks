@@ -5,20 +5,23 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import json
 import os
 import sys
 import weakref
 
 import loader
-from kube_yaml import yaml_safe_dump
+
+from kube_yaml import yaml_safe_dump, yaml_load
 from load_python_core import do_compile_internal
 from kube_obj import KubeObj, KubeBaseObj
 from obj_registry import obj_registry
 from user_error import UserError, user_originated
 from output import RubiksOutputError, OutputCollection
+from util import mkdir_p
+
 import kube_objs
 import kube_vartypes
-from util import mkdir_p
 
 
 class PythonFileCollection(loader.Loader):
@@ -104,7 +107,9 @@ class PythonFileCollection(loader.Loader):
             pth = loader.Path(os.path.join(self.repository.basepath, path), self.repository)
         self.debug(1, 'loading python {}'.format(pth.repo_rel_path))
 
+        self.current_file = pth
         self.get_file_context(pth)
+        self.current_file = None
 
     def import_python(self, py_context, name, exports, **kwargs):
         path = self.import_check(py_context, name)
@@ -217,6 +222,9 @@ class PythonBaseFile(object):
         def yaml_dump(obj):
             return yaml_safe_dump(obj, default_flow_style=False)
 
+        def yaml_load(string):
+            return yaml_load(string)
+
         def json_dump(obj, expanded=True):
             if expanded:
                 args = {'indent': 2}
@@ -229,6 +237,52 @@ class PythonBaseFile(object):
                 ret = kube_vartypes.JSON(obj)
                 ret.args = args
                 return ret
+
+        def json_load(string):
+            return json.loads(string)
+
+        def read_file(path, cant_read_ok=False):
+            path = self.path.relpath(path)
+            try:
+                with open(path.full_path) as f:
+                    return f.read()
+            except:
+                if cant_read_ok:
+                    return None
+                raise
+
+        def run_command(*cmd, **kwargs):
+            args = {'cwd': None, 'env_clear': False, 'env': None, 'delay': True, 'ignore_rc': True, 'rstrip': True}
+            for k in kwargs:
+                if k not in args:
+                    raise UserError(TypeError("{} isn't a valid argument to run_command()".format(k)))
+            args.update(kwargs)
+
+            cwd = None
+            if args['cwd'] is not None:
+                cwd = self.path.rel_path(args['cwd'])
+
+            good_rc = None
+            if not args['ignore_rc']:
+                good_rc = (0,)
+            cmd_ent = kube_vartypes.Command(cmd, cwd=cwd, env_clear=args['env_clear'],
+                                            env=args['env'], good_rc=good_rc)
+            if args['delay']:
+                return cmd_ent
+            else:
+                return str(cmd_ent)
+
+        def fileinfo():
+            return {
+                'current_file_full_path': self.path.full_path,
+                'current_file_repo_path': self.path.repo_rel_path,
+                'current_file_full_dir': self.path.full_dir,
+                'current_file_repo_dir': self.path.repo_rel_dir,
+                'load_file_full_path': self.collection().current_file.full_path,
+                'load_file_repo_path': self.collection().current_file.repo_rel_path,
+                'load_file_full_dir': self.collection().current_file.full_dir,
+                'load_file_repo_dir': self.collection().current_file.repo_rel_dir,
+                }
 
         def cluster_context(clstr):
             class cluster_wrapper(object):
@@ -272,8 +326,15 @@ class PythonBaseFile(object):
             'import_python': import_python,
             'namespace': namespace,
 
+            'yaml_load': yaml_load,
+            'json_load': json_load,
             'yaml_dump': yaml_dump,
             'json_dump': json_dump,
+
+            'read_file': read_file,
+            'run_command': run_command,
+
+            'fileinfo': fileinfo,
 
             'output': output,
             }
