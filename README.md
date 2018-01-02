@@ -6,6 +6,12 @@ with kubernetes configuration.
 The rubiks compiler provides a [DSL](Kube%20files%20and%20the%20DSL.md) (basically python) to help
 make this happen.
 
+## Rubiks Licensing
+
+Rubiks is available under the Apache 2.0 Licence (see the file [LICENCE](LICENCE) included in this distribution) and
+contains a distribution of PyYAML (see the file [PyYAML.LICENCE](PyYAML.LICENCE) for more information). It has been written
+by OLX, a part of the Naspers Group.
+
 ## Installing Rubiks
 
 Installing Rubiks is easy, you can just check out this repository to your working space
