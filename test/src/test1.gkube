@@ -88,3 +88,7 @@ with namespace('openshifter'):
     ret.new_to(RouteDestService, name='another-app')
     ret.new_tls()
     ret.port.targetPort = '8080-tcp'
+
+role = ClusterRole('deployer')
+role.new_rule(resources=['replicationcontrollers', 'deploymentconfigs', 'configmaps'],
+              verbs=['get', 'list', 'update', 'watch'])

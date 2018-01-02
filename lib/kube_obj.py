@@ -118,7 +118,13 @@ class KubeBaseObj(object):
                 self._data[k] = []
                 self._data[k].extend(kwargs[k])
             else:
+                if not isinstance(self._data[k], dict):
+                    self._data[k] = {}
+                if not isinstance(self._data[k], dict):
+                    self._data[k] = {}
                 self._data[k].update(kwargs[k])
+
+        return ret
 
     def _clone(self):
         ret = self.__class__()
@@ -356,18 +362,25 @@ class KubeBaseObj(object):
         if not self.check_namespace():
             raise UserError(KubeObjNoNamespace("No namespace attached to object at {}".format(path)))
 
+        data = self.xform()
+
         for k in types:
-            if k in self._data:
-                types[k].check(self._data[k], path + '.' + k)
+            if k in data:
+                types[k].check(data[k], path + '.' + k)
             else:
                 types[k].check(None, path + '.' + k)
 
-        for k in self._data:
+        for k in data:
             if k not in types and k not in mapping:
                 raise KubeTypeUnresolvable(
                     "Unknown data key {} - no type information".format(k))
 
-        return self.do_validate()
+        sav_data = self._data
+        try:
+            self._data = data
+            return self.do_validate()
+        finally:
+            self._data = sav_data
 
     def render(self):
         return None
@@ -612,6 +625,18 @@ class KubeBaseObj(object):
 class KubeObj(KubeBaseObj):
     identifier = 'name'
     has_metadata = True
+
+    @classmethod
+    def is_abstract_type(cls):
+        if not hasattr(cls, 'apiVersion') or not hasattr(cls, 'kind'):
+            return True
+        base = KubeBaseObj.render
+        this = cls.render
+        if hasattr(base, '__func__') and hasattr(this, '__func__'):
+            # python 2.7
+            return this.__func__ is base.__func__
+        # python 3
+        return this is base
 
     def check_namespace(self):
         if isinstance(self.namespace, KubeObj) and hasattr(self.namespace, 'kind') and \

@@ -466,16 +466,16 @@ class PodTemplateSpec(KubeSubObj):
 
     def xf_imagePullSecrets(self, v):
         if isinstance(v, DockerCredentials):
-            return [PodImagePullSecret(v.name)]
+            return [PodImagePullSecret(name=v.name)]
         elif Identifier().do_check(v, None):
-            return [PodImagePullSecret(v)]
+            return [PodImagePullSecret(name=v)]
         elif isinstance(v, list):
             ret = []
             for vv in v:
                 if isinstance(vv, DockerCredentials):
-                    ret.append(PodImagePullSecret(vv.name))
+                    ret.append(PodImagePullSecret(name=vv.name))
                 elif Identifier().do_check(vv, None):
-                    ret.append(PodImagePullSecret(vv))
+                    ret.append(PodImagePullSecret(name=vv))
                 else:
                     ret.append(vv)
             return ret
