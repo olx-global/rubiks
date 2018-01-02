@@ -20,7 +20,7 @@ class Command_readme(Command, CommandRepositoryBase, LoaderBase):
 
         This repository is a rubiks repository, needing the rubiks tool to generate. It generates YAML for consumption by openshift or kubernetes.
 
-        It has {clusterinfo}. Sources can be found in `{sources}/` and the output yaml will be generated in `{output}/` ({output_layout}). Files containing confidential data {confidential}.
+        It has {clusterinfo}. Sources can be found in `{sources}/` and the output yaml will be generated in `{output}/` ({output_layout}).{pythonpath} Files containing confidential data {confidential}.
 
         You can regenerate the output by running `rubiks generate` in this directory.
 
@@ -57,6 +57,11 @@ class Command_readme(Command, CommandRepositoryBase, LoaderBase):
             output_layout = '`{}/<global>.yaml` or `{}/<namespace>/<objects>.yaml`'
         output_layout = output_layout.format(r.outputs, r.outputs)
 
+        pythonpath = ''
+        if len(r.pythonpath) != 0:
+            pythonpath = ' While running, `$PYTHONPATH` will be set to search: ' + \
+                ', '.join(map(lambda x: '`{}/`'.format(os.path.relpath(x, r.basepath)), r.pythonpath)) + '.'
+
         cf_type = coll.outputs.confidential
 
         if cf_type is output.ConfidentialOutput:
@@ -78,7 +83,7 @@ class Command_readme(Command, CommandRepositoryBase, LoaderBase):
 
         formatter = {'clusterinfo': clusterinfo, 'reponame': os.path.split(r.basepath)[1],
                      'sources': r.sources, 'output': r.outputs, 'confidential': confidential,
-                     'output_layout': output_layout}
+                     'output_layout': output_layout, 'pythonpath': pythonpath}
 
         text = '\n'.join(map(lambda x: x.strip(), self.repotext.strip().splitlines())) + '\n'
 
