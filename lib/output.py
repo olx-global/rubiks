@@ -332,7 +332,7 @@ class ConfidentialOutputGitMgmt(ConfidentialOutput):
 
         lines.append(self.line)
 
-        for gmp in self.gitmgmt:
+        for gmp in sorted(self.gitmgmt):
             relpath = os.path.relpath(gmp, self.basedir)
             assert not relpath.startswith('../')
             lines.extend(map(lambda x: self.gen_line('/' + relpath + '/' + x), sorted(self.gitmgmt[gmp])))
