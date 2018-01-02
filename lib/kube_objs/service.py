@@ -89,6 +89,9 @@ class Service(KubeObj):
 
         return ret
 
+    def internal_addr(self):
+        return None
+
 
 class ClusterIPService(Service):
     _defaults = {
@@ -128,6 +131,21 @@ class ClusterIPService(Service):
         return router.Route(port=router.RouteDestPort(targetPort=port._data['name']),
                             to=[router.RouteDestService(name=self.name)],
                             name=name, host=host)
+
+    def internal_addr(self, port=None, scheme='http'):
+        ports = self.xf_ports(self._data['ports'])
+        if port is None and len(ports) == 1:
+            port = ports[0]._data['port']
+        if port is None or not Positive(NonZero(Integer)).do_check(port, None):
+            return None
+        if port not in list(map(lambda x: x._data['port'], ports)):
+            return None
+
+        ret = scheme + '://' + self._data['name'] + '.' + self.namespace.name + '.svc.cluster.local'
+        if scheme != 'http' or port != 80:
+            ret += ':{}'.format(port)
+
+        return ret
 
     def render(self):
         ret = self.renderer(order=('selector', 'ports'))
