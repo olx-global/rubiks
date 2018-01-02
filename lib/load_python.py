@@ -79,7 +79,7 @@ class PythonFileCollection(loader.Loader):
 
         def _rec_add(path):
             d_ents = os.listdir(os.path.join(self.repository.basepath, basepath, path, '.'))
-            for d_ent in d_ents:
+            for d_ent in sorted(d_ents):
                 if d_ent.startswith('.'):
                     continue
                 if os.path.exists(os.path.join(self.repository.basepath, basepath, path, d_ent, '.')):
