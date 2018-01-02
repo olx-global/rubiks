@@ -8,6 +8,8 @@ from __future__ import unicode_literals
 import os
 import sys
 
+from user_error import UserError
+
 DEV = True
 VERBOSE = False
 DEBUG = False
@@ -124,16 +126,16 @@ class Loader(object):
         try:
             npath = py_context.path.rel_path(name)
         except AssertionError as e:
-            raise LoaderImportError('path imports must be relative {} -> {}'.format(
-                                    py_context.src_rel_path, name))
+            raise UserError(LoaderImportError('path imports must be relative {} -> {}'.format(
+                                              py_context.path.src_rel_path, name)))
         if valid_exts is not None:
             if npath.extension not in valid_exts:
-                raise LoaderImportError('expected file extension in ({}), got .{}'.format(
-                                        ', '.join(valid_exts), npath.extension))
+                raise UserError(LoaderImportError('expected file extension in ({}), got .{}'.format(
+                                                  ', '.join(valid_exts), npath.extension)))
 
         if not npath.exists():
-            raise LoaderImportError('file {} -> {} imported from {} does not exist'.format(
-                                    npath.src_rel_path, npath.full_path, py_context.src_rel_path))
+            raise UserError(LoaderImportError('file {} -> {} imported from {} does not exist'.format(
+                                              npath.src_rel_path, npath.full_path, py_context.path.src_rel_path)))
 
         return npath
 

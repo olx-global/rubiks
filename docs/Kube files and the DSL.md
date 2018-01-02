@@ -70,6 +70,10 @@ Functions and variables that are available in the rubiks files
   will stop automatic output of other objects in this file, and will require all objects to be
   explicitly `output()`.
 
+- `no_output()`<br>
+  require all objects in this file to be explicitly `output()` if they would normally be
+  automatically output
+
 - `namespace(<ns_name>)`<br>
   setup a default namespace name for objects created in this context
   ```python
@@ -150,3 +154,7 @@ the `output()` function is called. An .ekube can be imported into another .ekube
 cluster is implied in each case, however if trying to `import_python()` an .ekube into a .gkube
 or .kube, a `cluster=<clustername>` option will need to be specified. This kind of file is also
 loaded automatically by rubiks.
+
+### .ckube files
+
+Like .ekube files, but don't automatically output objects.

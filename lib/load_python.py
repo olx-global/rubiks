@@ -222,6 +222,9 @@ class PythonBaseFile(object):
             self.output_was_called = True
             return self.collection().add_output(val)
 
+        def no_output():
+            self.output_was_called = True
+
         def yaml_dump(obj):
             return kube_yaml.yaml_safe_dump(obj, default_flow_style=False)
 
@@ -341,6 +344,7 @@ class PythonBaseFile(object):
             'fileinfo': fileinfo,
 
             'output': output,
+            'no_output': no_output,
             }
 
         if len(clusters) != 0:
@@ -425,14 +429,14 @@ class PythonBaseFile(object):
 class PythonImportFile(PythonBaseFile):
     extensions = ('kube',)
 
-class PythonRunOnceFile(PythonBaseFile):
+class PythonRunOnceFile(PythonImportFile):
     default_export_objects = True
     extensions = ('gkube',)
 
-class PythonRunPerClusterFile(PythonBaseFile):
+class PythonImportPerClusterFile(PythonBaseFile):
     compile_in_init = False
-    default_export_objects = True
-    extensions = ('ekube',)
+    default_export_objects = False
+    extensions = ('ckube',)
     can_cluster_context = False
 
     def __init__(self, *args, **kwargs):
@@ -481,3 +485,7 @@ class PythonRunPerClusterFile(PythonBaseFile):
         if not 'cluster' in kwargs:
             raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube files")
         return self.module[kwargs['cluster']].__dict__[symname]
+
+class PythonRunPerClusterFile(PythonImportPerClusterFile):
+    default_export_objects = True
+    extensions = ('ekube',)
