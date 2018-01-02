@@ -18,7 +18,7 @@ Functions and variables that are available in the rubiks files
   function to read a file and make it available in a variable (eg. for a ConfigMap)
   - `cant_read_ok`: return None instead of raising an exception if the file is unreadable
 
-- `run_command(<cmd>[, ...<args>][, cwd=<path>][, env={...}][, env_clear=False][, delay=True][, ignore_rc=True][, rstrip=True])`<br>
+- `run_command(<cmd>[, ...<args>][, cwd=<path>][, env={...}][, env_clear=False][, delay=True][, ignore_rc=True][, rstrip=True][, eol=False])`<br>
   run a command (with arguments) and capture the output
   - `rstrip`: run an "rstrip()" stripping trailing whitespace from the output
   - `env_clear`: run from a clean environment (not including PATH)
@@ -26,13 +26,14 @@ Functions and variables that are available in the rubiks files
   - `cwd`: relative path to this file in which to run the command
   - `ignore_rc`: whether to give the output regardless of the returncode, or whether to raise an exception if rc != 0
   - `delay`: whether to delay running the command until YAML evaluation (potentially allowing it to be run multiple times)
+  - `eol`: whether to enforce a newline termination (even after an rstrip)
 
-- `import_python(<relative_path>[, ...<symbols>][, as=<name>][, <extra_options>])`<br>
+- `import_python(<relative_path>[, ...<symbols>][, import_as=<name>][, <extra_options>])`<br>
   imports symbols from another kube file as the `import` keyword - but uses explicit
   pathnames (relative to this file). We can't use the `import` as it relies on `.py` files
   which we don't have. There are some extra options for, eg. ekube files to distinguish
   which symbol iteration.
-  - `as=<name>`: the equivalent of "`import <origname> as <name>`"
+  - `import_as=<name>`: the equivalent of "`import <origname> as <name>`"
   - `<symbols>`: a list of symbols to import<br>
     - `import_python(<path>, '*')` equivalent to `from <name> import *`
     - `import_python(<path>, <sym1>, <sym2>)` equivalent to `from <name> import <sym1>, <sym2>`

@@ -57,13 +57,14 @@ class CommandRuntimeException(Exception):
 
 
 class Command(var_types.VarEntity):
-    def init(self, cmd, cwd=None, env_clear=False, env=None, good_rc=None, rstrip=False):
+    def init(self, cmd, cwd=None, env_clear=False, env=None, good_rc=None, rstrip=False, eol=False):
         self.cmd = cmd
         self.cwd = cwd
         self.env_clear = env_clear
         self.env = env
         self.good_rc = good_rc
         self.rstrip = rstrip
+        self.eol = eol
 
     def to_string(self):
         if self._in_validation:
@@ -76,7 +77,7 @@ class Command(var_types.VarEntity):
             for e in self.env:
                 env[e] = str(self.env[e])
 
-        p = subprocess.Popen(self.cmd, close_fds=True, shell=False, cwd=self.cwd, env=env,
+        p = subprocess.Popen(map(str, self.cmd), close_fds=True, shell=False, cwd=self.cwd, env=env,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         (out, err) = p.communicate()
@@ -87,9 +88,12 @@ class Command(var_types.VarEntity):
         if len(err.strip()) != 0:
             print(err.rstrip(), file=sys.stderr)
 
+        if self.rstrip:
+            out = out.rstrip()
+        if self.eol and out[-1] != '\n':
+            out += '\n'
+
         if self.good_rc is None or rc in self.good_rc:
-            if self.rstrip:
-                return out.rstrip()
             return out
 
         raise UserError(CommandRuntimeException("Command {} ({}) exited with code rc={}".format(

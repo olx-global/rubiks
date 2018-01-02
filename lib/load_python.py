@@ -255,7 +255,8 @@ class PythonBaseFile(object):
                 raise
 
         def run_command(*cmd, **kwargs):
-            args = {'cwd': None, 'env_clear': False, 'env': None, 'delay': True, 'ignore_rc': True, 'rstrip': True}
+            args = {'cwd': None, 'env_clear': False, 'env': None, 'delay': True, 'ignore_rc': True,
+                    'rstrip': True, 'eol': False}
             for k in kwargs:
                 if k not in args:
                     raise UserError(TypeError("{} isn't a valid argument to run_command()".format(k)))
@@ -269,7 +270,7 @@ class PythonBaseFile(object):
             if not args['ignore_rc']:
                 good_rc = (0,)
             cmd_ent = kube_vartypes.Command(cmd, cwd=cwd, env_clear=args['env_clear'],
-                                            env=args['env'], good_rc=good_rc)
+                                            env=args['env'], good_rc=good_rc, rstrip=args['rstrip'], eol=args['eol'])
             if args['delay']:
                 return cmd_ent
             else:
