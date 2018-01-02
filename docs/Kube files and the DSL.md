@@ -39,6 +39,7 @@ Functions and variables that are available in the rubiks files
     - `import_python(<path>, <sym1>, <sym2>)` equivalent to `from <name> import <sym1>, <sym2>`
     - `import_python(<path>, (<sym1>, <name1>), (<sym2>, <name2>))` equivalent to
       `from <name> import <sym1> as <name1>, <sym2> as <name2>`
+  - `no_import=<bool>`: If true (only valid with no symbols and without `import_as`), don't perform the import of the symbols, allowing use of the module as a return value. _Defaults False_.
   - `<extra_options>`: other options for the importer routines
 
 - `yaml_dump(<obj>)`<br>

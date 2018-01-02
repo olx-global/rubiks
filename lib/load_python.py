@@ -120,18 +120,27 @@ class PythonFileCollection(loader.Loader):
         if 'import_as' in kwargs and kwargs['import_as'] is not None:
             basename = kwargs['import_as']
 
-        if 'import_as' in kwargs:
-            del kwargs['import_as']
-
+        new_context = None
         try:
             new_context = self.get_file_context(path)
 
-            self.import_symbols(name, new_context.path, py_context.path, basename,
-                                new_context, py_context._current_module, exports, **kwargs)
+            if 'no_import' not in kwargs or not kwargs['no_import']:
+                if 'no_import' in kwargs:
+                    del kwargs['no_import']
+                if 'import_as' in kwargs:
+                    del kwargs['import_as']
+
+                self.import_symbols(name, new_context.path, py_context.path, basename,
+                                    new_context, py_context._current_module, exports, **kwargs)
+
+            elif len(exports) != 0 or ('import_as' in kwargs and kwargs['import_as'] is not None):
+                raise UserError(ValueError("import_python: Can't set symbols to import to when using no_import"))
+
         except loader.LoaderBaseException as e:
             raise UserError(e)
 
         self.add_dep(py_context.path, path)
+        return new_context
 
     def add_output(self, kobj):
         self.outputs.add_output(kobj)
@@ -212,11 +221,17 @@ class PythonBaseFile(object):
     def default_ns(self):
         def import_python(name, *exports, **kwargs):
             self.debug(3, '{}: import_python({}, ...)'.format(self.path.src_rel_path, name))
+
             nargs = {}
             nargs.update(self.default_import_args)
             nargs.update(kwargs)
             nargs['__reserved_names'] = self.reserved_names
-            return self.collection().import_python(self, name, exports, **nargs)
+
+            ret = self.collection().import_python(self, name, exports, **nargs)
+
+            if ret is not None:
+                return ret.get_module(**nargs)
+            return ret
 
         def output(val):
             self.output_was_called = True
