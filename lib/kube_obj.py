@@ -499,7 +499,7 @@ class KubeBaseObj(object):
         if len(order) != 0:
             return order_dict(ret, order)
 
-        return ret
+        return order_dict(ret, ())
 
     def xform(self):
         ret = {}
@@ -555,7 +555,7 @@ class KubeBaseObj(object):
                 elif len(self.annotations) != 0:
                     obj['metadata']['annotations'] = copy.copy(self.annotations)
 
-                if hasattr(self, 'namespace') and self.namespace is not None:
+                if self._uses_namespace and hasattr(self, 'namespace') and self.namespace is not None:
                     obj['metadata']['namespace'] = self.namespace.name
 
                 if hasattr(self, 'identifier'):

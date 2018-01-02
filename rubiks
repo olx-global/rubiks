@@ -9,36 +9,19 @@ from __future__ import unicode_literals
 import os
 import sys
 
-repobase = os.path.realpath(os.path.split(sys.modules[__name__].__file__)[0])
+repobase = os.path.split(os.path.realpath(sys.modules[__name__].__file__))[0]
 
 sys.path.insert(0, os.path.join(repobase, 'lib'))
 
-# === real program starts here ===
-
 import python_path
-
-import rubiks_repository
-import obj_registry
-import load_python
+import command_loader
 import kube_loader
-import user_error
 
-try:
-    if sys.argv[1] == 'help':
-        objs = load_python.PythonBaseFile.get_kube_objs()
-        for oname in objs:
-            if oname.lower() == sys.argv[2].lower():
-                print(objs[oname].get_help())
-                sys.exit(0)
-        print('Unknown type {}'.format(sys.argv[2].lower()), file=sys.stderr)
-        sys.exit(1)
-except IndexError:
-    pass
+import command
 
-r = rubiks_repository.RubiksRepository()
-obj_registry.init(r.is_openshift)
-coll = load_python.PythonFileCollection(r)
 
-with user_error.user_errors(True):
-    coll.load_all_python(r.sources)
-    coll.gen_output()
+def main():
+    sys.exit(command.Command.run_command())
+
+if __name__ == '__main__':
+    main()

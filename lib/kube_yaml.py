@@ -138,4 +138,6 @@ def yaml_dump(*args, **kwargs):
     return stream.get_value()
 
 def yaml_load(string):
+    if sys.version_info[0] == 2:
+        string = unicode(string)
     return yaml.load(StringIO(string))

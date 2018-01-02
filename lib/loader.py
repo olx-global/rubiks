@@ -44,7 +44,7 @@ class Path(object):
     def __init__(self, path, repository):
         self.repository = repository
         self.rootdir = repository.basepath
-        self.srcsdir = repository.sources
+        self.srcsdir = os.path.join(repository.basepath, repository.sources)
 
         self.full_path = os.path.realpath(path)
         self.repo_rel_path = os.path.relpath(self.full_path, self.rootdir)
@@ -175,7 +175,7 @@ class Loader(object):
                         t_module.__dict__[sym] = f_ctx.get_symbol(sym, **kwargs)
 
         except AssertionError as e:
-            raise LoaderImportError("'*' is only allowed as the only export importing {] -> {} from {}".format(
+            raise LoaderImportError("'*' is only allowed as the only export importing {} -> {} from {}".format(
                 name, f_path.src_rel_path, t_path.src_rel_path))
 
         except KeyError as e:

@@ -12,7 +12,7 @@ import weakref
 
 import loader
 
-from kube_yaml import yaml_safe_dump, yaml_load
+import kube_yaml
 from load_python_core import do_compile_internal
 from kube_obj import KubeObj, KubeBaseObj
 from obj_registry import obj_registry
@@ -220,10 +220,10 @@ class PythonBaseFile(object):
             return self.collection().add_output(val)
 
         def yaml_dump(obj):
-            return yaml_safe_dump(obj, default_flow_style=False)
+            return kube_yaml.yaml_safe_dump(obj, default_flow_style=False)
 
         def yaml_load(string):
-            return yaml_load(string)
+            return kube_yaml.yaml_load(string)
 
         def json_dump(obj, expanded=True):
             if expanded:
@@ -242,7 +242,7 @@ class PythonBaseFile(object):
             return json.loads(string)
 
         def read_file(path, cant_read_ok=False):
-            path = self.path.relpath(path)
+            path = self.path.rel_path(path)
             try:
                 with open(path.full_path) as f:
                     return f.read()
