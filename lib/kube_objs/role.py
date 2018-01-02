@@ -108,17 +108,21 @@ class RoleSubject(KubeSubObj):
     _defaults = {
         'name': None,
         'kind': None,
-        'namespace': None,
+        'ns': None,
         }
 
     _types = {
-        'name': Nullable(Identifier),
+        'name': Nullable(SystemIdentifier),
         'kind': Nullable(CaseIdentifier),
-        'namespace': Nullable(Identifier),
+        'ns': Nullable(Identifier),
         }
 
     def render(self):
-        return self.renderer(order=('name', 'kind', 'namespace'))
+        ret = self.renderer(order=('name', 'kind', 'ns'))
+        if 'ns' in ret:
+            ret['namespace'] = ret['ns']
+            del ret['ns']
+        return ret
 
 
 class RoleRef(KubeSubObj):
@@ -151,7 +155,7 @@ class RoleBindingBase(KubeObj):
         elif isinstance(v, ClusterRole):
             return RoleRef(name=v.name)
         elif String().do_check(v, None):
-            return RoleRev(name=v)
+            return RoleRef(name=v)
         return v
 
     def xf_subjects(self, v):
@@ -162,13 +166,15 @@ class RoleBindingBase(KubeObj):
         for vv in v:
             if isinstance(vv, (ServiceAccount, User, Group)):
                 if vv._uses_namespace:
-                    ret.append(RoleSubject(name=vv.name, kind=vv.kind, namespace=vv.namespace.name))
+                    ret.append(RoleSubject(name=vv.name, kind=vv.kind, ns=vv.namespace.name))
+                else:
+                    ret.append(RoleSubject(name=vv.name, kind=vv.kind))
             elif String().do_check(vv, None):
                 if vv.startswith('system:serviceaccounts:'):
                     ret.append(RoleSubject(name=vv, kind='SystemGroup'))
                 elif vv.startswith('system:serviceaccount:'):
                     svv = vv.split(':', 3)
-                    ret.append(RoleSubject(name=svv[4], kind='ServiceAccount', namespace=svv[3]))
+                    ret.append(RoleSubject(name=svv[4], kind='ServiceAccount', ns=svv[3]))
                 else:
                     ret.append(RoleSubject(name=vv, kind='User'))
             else:

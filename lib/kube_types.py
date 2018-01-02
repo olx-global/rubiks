@@ -296,6 +296,26 @@ class CaseIdentifier(Identifier):
         return True
 
 
+class SystemIdentifier(Identifier):
+    validation_text = "Identifiers should be <253 chars and lc alphanum or . or - or :"
+
+    def do_check(self, value, path):
+        if not String.do_check(self, value, path):
+            return False
+
+        if value.startswith('system:'):
+            id_chars = 'abcdefghijklmnopqrstuvwxyz0123456789.-:'
+        else:
+            id_chars = 'abcdefghijklmnopqrstuvwxyz0123456789.-'
+
+        if len(value) == 0 or len(value) > 253:
+            return False
+        for v in value:
+            if v not in id_chars:
+                return False
+        return True
+
+
 class ARN(String):
     validation_text = "Amazon ARNs start with arn:aws:..."
 
