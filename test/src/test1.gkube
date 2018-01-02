@@ -66,10 +66,10 @@ with namespace('myapp'):
     ret['aws-load-balancer-ssl-cert'] = 'arn:aws:iam::12345:server-certificate/myapp.certificate'
 
     ret = PersistentVolumeClaim('data', accessModes=['ReadWriteOnce'], request='500Mi')
-    ret.annotations = {
+    ret.update(annotations={
         'volume.beta.kubernetes.io/storage-class': 'slow',
         'volume.beta.kubernetes.io/storage-provisioner': 'kubernetes.io/aws-ebs',
-        }
+        })
 
 with namespace('openshifter'):
     labels = {'app': 'another-app', 'deployenv': 'production'}

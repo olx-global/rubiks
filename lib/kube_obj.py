@@ -364,6 +364,24 @@ class KubeBaseObj(object):
                 return True
         return False
 
+    def update(self, **kwargs):
+        bad_args = set()
+        for k in kwargs:
+            if k in self._data:
+                continue
+            if self.has_metadata and k in ('labels', 'annotations'):
+                continue
+            bad_args.add(k)
+        if len(bad_args) != 0:
+            raise UserError(KeyError("{} isn't/aren't attributes of {}".format(
+                ', '.join(map(lambda x: "'{}'".format(x), sorted(bad_args))),
+                self.__class__.__name__)))
+        for k in kwargs:
+            if k in self._data:
+                self._data[k] = kwargs[k]
+            else:
+                self.__setattr__(k, kwargs[k])
+
     def validate(self, path=None):
         if path is None:
             path = 'self'
