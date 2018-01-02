@@ -41,6 +41,31 @@ class DplRollingUpdateStrategy(DplBaseUpdateStrategy):
         return {'rollingUpdate': ret, 'type': 'RollingUpdate'}
 
 
+class ReplicationController(KubeObj):
+    apiVersion = 'v1'
+    kind = 'ReplicationController'
+    kubectltype = 'replicationcontroller'
+
+    _defaults = {
+        'minReadySeconds': None,
+        'pod_template': PodTemplateSpec(),
+        'replicas': 1,
+        'selector': None,
+        }
+
+    _types = {
+        'minReadySeconds': Nullable(Positive(NonZero(Integer))),
+        'pod_template': PodTemplateSpec(),
+        'replicas': Positive(NonZero(Integer)),
+        'selector': Nullable(Map(String, String)),
+        }
+
+    def render(self):
+        ret = self.renderer(mapping={'pod_template': 'template'}, order=('replicas', 'selector', 'template'))
+        del ret['name']
+        return {'metadata': {'name': self._data['name']}, 'spec': ret}
+
+
 class Deployment(KubeObj):
     apiVersion = 'extensions/v1beta1'
     kind = 'Deployment'

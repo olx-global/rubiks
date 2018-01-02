@@ -97,7 +97,7 @@ class KubeBaseObj(object):
                 self._data[k] = []
                 self._data[k].extend(kwargs[k])
             else:
-                if self._data[k] is None:
+                if not isinstance(self._data[k], dict):
                     self._data[k] = {}
                 self._data[k].update(kwargs[k])
 
@@ -122,8 +122,6 @@ class KubeBaseObj(object):
                 self._data[k] = []
                 self._data[k].extend(kwargs[k])
             else:
-                if not isinstance(self._data[k], dict):
-                    self._data[k] = {}
                 if not isinstance(self._data[k], dict):
                     self._data[k] = {}
                 self._data[k].update(kwargs[k])
