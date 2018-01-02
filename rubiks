@@ -15,7 +15,8 @@ sys.path.insert(0, os.path.join(repobase, 'lib'))
 
 # === real program starts here ===
 
-import load_all
+import python_path
+
 import rubiks_repository
 import obj_registry
 import load_python

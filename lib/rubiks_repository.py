@@ -50,8 +50,8 @@ class ClusterInfo(object):
         raise AttributeError("ClusterInfo object is read-only")
 
 class RubiksRepository(repository.Repository):
-    def __init__(self):
-        repository.Repository.__init__(self)
+    def __init__(self, *args, **kwargs):
+        repository.Repository.__init__(self, *args, **kwargs)
         self.pythonpath = []
         self.clusters = {}
         self.is_openshift = False

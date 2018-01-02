@@ -13,14 +13,15 @@ class RepositoryError(Exception):
 
 class Repository(object):
     """object representing the repository in which the compiler is run"""
-    def __init__(self):
+    def __init__(self, cwd=None):
+        self.cwd = cwd
         self.find_worktree()
         self.populate_status()
         self.sources = 'sources'
         self.outputs = 'generated'
 
     def find_worktree(self):
-        p = subprocess.Popen(['git', 'worktree', 'list', '--porcelain'],
+        p = subprocess.Popen(['git', 'worktree', 'list', '--porcelain'], cwd=self.cwd,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
 
         (out, err) = p.communicate()
@@ -117,7 +118,7 @@ class GitAlteredFile(GitFile):
         if not hasattr(self, 'head_obj'):
             return None
 
-        p = subprocess.Popen(['git', 'show', self.head_obj], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen(['git', 'show', self.head_obj], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.base)
         (out, err) = p.communicate()
 
         return out
@@ -126,7 +127,7 @@ class GitAlteredFile(GitFile):
         if not hasattr(self, 'index_obj'):
             return None
 
-        p = subprocess.Popen(['git', 'show', self.index_obj], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        p = subprocess.Popen(['git', 'show', self.index_obj], stdout=subprocess.PIPE, stderr=subprocess.PIPE, cwd=self.base)
         (out, err) = p.communicate()
 
         return out
@@ -202,7 +203,7 @@ class GitStatus(object):
         self.modifications = {}
 
         p = subprocess.Popen(['git', '-c', 'status.relativePaths=false', 'status',
-                              '--branch', '-z', '--porcelain=v2'],
+                              '--branch', '-z', '--porcelain=v2'], cwd=base,
                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         (out, err) = p.communicate()
 

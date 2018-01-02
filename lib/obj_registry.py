@@ -123,7 +123,9 @@ def init(is_openshift):
     get_ns(None, 'default')
     get_ns(None, 'kube-system')
     if is_openshift:
+        get_ns(None, 'openshift')
         get_ns(None, 'openshift-infra')
+    KubeBaseObj._is_openshift = is_openshift
 
 def obj_registry():
     return _REG

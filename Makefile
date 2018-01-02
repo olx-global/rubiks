@@ -25,7 +25,7 @@ build/PyYAML-${PYYAML_VERSION}/setup.py: build/PyYAML-${PYYAML_VERSION}.tar.gz
 	cd build && tar zxvf PyYAML-${PYYAML_VERSION}.tar.gz
 	touch build/PyYAML-${PYYAML_VERSION}/setup.py
 
-test:
+test: clean
 	@PYTHON="$${PYTHON-python}"; export PYTHONPATH=test/test:lib; \
 	echo "testing all (with $${PYTHON}) in test/test/test_*.py..."; \
 	for i in test/test/test_*.py; do \
@@ -33,4 +33,8 @@ test:
 	done; \
 	"$${PYTHON}" -m unittest $${modules}
 
-.PHONY: yaml test
+clean:
+	find . -type f -name '*.py[co]' -print0 | xargs -0 rm
+	find . -type d -name '__pycache__' -print0 | xargs -0 rm -r
+
+.PHONY: yaml test clean

@@ -54,6 +54,7 @@ class KubeBaseObj(object):
     _map = {}
     _parent_types = None
     has_metadata = False
+    _is_openshift = False
 
     def __init__(self, *args, **kwargs):
         # put the identifier in if it's specified

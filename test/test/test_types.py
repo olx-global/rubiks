@@ -8,7 +8,7 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 import unittest
 
-import load_all
+import python_path
 import user_error
 from kube_types import *
 import kube_loader

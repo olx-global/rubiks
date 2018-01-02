@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 
 import unittest
 
-import load_all
+import python_path
 import var_types
 import kube_yaml
 
