@@ -586,6 +586,101 @@ class KubeBaseObj(object):
 
         return self
 
+    def dump_obj(self, indent=0):
+        defaults = self.__class__._find_defaults('_defaults')
+        mapping = self.__class__._find_defaults('_map')
+
+        def eline(obj, pfx, idt, idt_txt, comma):
+            if isinstance(obj, KubeBaseObj):
+                return idt_txt + pfx + obj.dump_obj(idt) + comma
+            elif isinstance(obj, dict):
+                return idt_txt + pfx + dump_dict(obj, idt) + comma
+            elif isinstance(obj, list):
+                return idt_txt + pfx + dump_list(obj, idt) + comma
+            else:
+                return idt_txt + pfx + repr(obj) + comma
+
+        def dump_dict(v, idt):
+            if len(v) == 0:
+                return '{}'
+            elif len(v) == 1:
+                text = ''
+                args = (idt, '', '')
+            else:
+                text = '\n'
+                args = (idt + 4, ' ' * (idt + 4), ',\n')
+
+            for i in sorted(v.keys()):
+                text += eline(v[i], repr(i) + ': ', *args)
+
+            return '{' + text + args[1] + '}'
+
+        def dump_list(v, idt):
+            if len(v) == 0:
+                return '[]'
+            elif len(v) == 1:
+                text = ''
+                args = (idt, '', '')
+            else:
+                text = '\n'
+                args = (idt + 4, ' ' * (idt + 4), ',\n')
+
+            for i in v:
+                text += eline(i, '', *args)
+
+            return '[' + text + args[1] + ']'
+
+        has_data = 0
+        if hasattr(self, 'identifier') and self._data[self.identifier] is not None:
+            has_data += 1
+
+        if self.has_metadata and (not isinstance(self.annotations, dict) or len(self.annotations) != 0):
+            has_data += 1
+
+        if self.has_metadata and (not isinstance(self.labels, dict) or len(self.labels) != 0):
+            has_data += 1
+
+        for k in self._data.keys():
+            if hasattr(self, 'identifier') and k == self.identifier:
+                continue
+
+            if k in mapping:
+                continue
+
+            if k not in defaults or self._data[k] != defaults[k]:
+                has_data += 1
+
+        if has_data == 0:
+            return self.__class__.__name__ + '()'
+
+        if has_data == 1:
+            text = ''
+            args = (indent, '', '')
+        else:
+            text = '\n'
+            args = (indent + 4, ' ' * (indent + 4), ',\n')
+
+        if hasattr(self, 'identifier') and self._data[self.identifier] is not None:
+            text += eline(self._data[self.identifier], '', *args)
+
+        if self.has_metadata and (not isinstance(self.annotations, dict) or len(self.annotations) != 0):
+            text += eline(self.annotations, 'annotations=', *args)
+
+        if self.has_metadata and (not isinstance(self.labels, dict) or len(self.labels) != 0):
+            text += eline(self.labels, 'labels=', *args)
+
+        for k in sorted(self._data.keys()):
+            if hasattr(self, 'identifier') and k == self.identifier:
+                continue
+
+            if k in mapping:
+                continue
+
+            if k not in defaults or self._data[k] != defaults[k]:
+                text += eline(self._data[k], k + '=', *args)
+
+        return self.__class__.__name__ + '(' + text + args[1] + ')'
+
     def get_obj(self, prop, *args, **kwargs):
         types = self.__class__.resolve_types()
 
