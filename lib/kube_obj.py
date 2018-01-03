@@ -586,13 +586,13 @@ class KubeBaseObj(object):
 
         return self
 
-    def dump_obj(self, indent=0):
+    def dump_obj(self, indent=0, include_defaults=False):
         defaults = self.__class__._find_defaults('_defaults')
         mapping = self.__class__._find_defaults('_map')
 
         def eline(obj, pfx, idt, idt_txt, comma):
             if isinstance(obj, KubeBaseObj):
-                return idt_txt + pfx + obj.dump_obj(idt) + comma
+                return idt_txt + pfx + obj.dump_obj(idt, include_defaults) + comma
             elif isinstance(obj, dict):
                 return idt_txt + pfx + dump_dict(obj, idt) + comma
             elif isinstance(obj, list):
@@ -647,7 +647,7 @@ class KubeBaseObj(object):
             if k in mapping:
                 continue
 
-            if k not in defaults or self._data[k] != defaults[k]:
+            if include_defaults or k not in defaults or self._data[k] != defaults[k]:
                 has_data += 1
 
         if has_data == 0:
@@ -676,7 +676,7 @@ class KubeBaseObj(object):
             if k in mapping:
                 continue
 
-            if k not in defaults or self._data[k] != defaults[k]:
+            if include_defaults or k not in defaults or self._data[k] != defaults[k]:
                 text += eline(self._data[k], k + '=', *args)
 
         return self.__class__.__name__ + '(' + text + args[1] + ')'
