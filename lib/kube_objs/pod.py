@@ -449,7 +449,7 @@ class PodVolumeConfigMapSpec(PodVolumeBaseSpec):
         ret['configMap'] = OrderedDict(name=self._data['map_name'])
 
         if self._data['defaultMode'] is not None:
-            ret['configMap']['defaultMode'] = int('{:o}'.format(self._data['defaultMode']), 10)
+            ret['configMap']['defaultMode'] = self._data['defaultMode']
 
         if len(self._data['item_map']) != 0:
             ret['configMap']['items'] = []
@@ -485,7 +485,7 @@ class PodVolumeSecretSpec(PodVolumeBaseSpec):
         ret['secret'] = OrderedDict(secretName=self._data['secret_name'])
 
         if self._data['defaultMode'] is not None:
-            ret['secret']['defaultMode'] = int('{:o}'.format(self._data['defaultMode']), 10)
+            ret['secret']['defaultMode'] = self._data['defaultMode']
 
         if len(self._data['item_map']) != 0:
             ret['secret']['items'] = []
