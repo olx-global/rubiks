@@ -430,7 +430,7 @@ class KubeBaseObj(object):
             self._data = sav_data
 
     def render(self):
-        return None
+        raise NotImplementedError('method not implemented')
 
     def find_subparser(self, doc):
         return self.__class__
@@ -511,6 +511,12 @@ class KubeBaseObj(object):
             else:
                 self._data[k] = o_typ().parser(v)
 
+        if hasattr(self, 'pre_parse_fixup'):
+            try:
+                doc = self.pre_parse_fixup(doc)
+            except Exception as e:
+                raise UserError(KubeObjParseError(
+                    'Fixup failed: {}: {}'.format(e.__class__.__name__, str(e)), self, doc))
 
         if self._parse_default_base is not None:
             for k in types:
@@ -524,7 +530,6 @@ class KubeBaseObj(object):
                     t = list(self._parse_default_base)
                     t.append(k)
                     parser[k] = tuple(t)
-
 
         for k in types:
             if k not in parser and k in doc:
