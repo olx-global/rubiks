@@ -25,6 +25,10 @@ import kube_objs
 import kube_vartypes
 
 
+class PythonStopCompile(Exception):
+    pass
+
+
 class PythonFileCollection(loader.Loader):
     _python_file_types = None
 
@@ -256,6 +260,9 @@ class PythonBaseFile(object):
         def yaml_load(string):
             return kube_yaml.yaml_load(string)
 
+        def stop():
+            raise PythonStopCompile("stop")
+
         def json_dump(obj, expanded=True):
             if expanded:
                 args = {'indent': 2}
@@ -365,6 +372,8 @@ class PythonBaseFile(object):
             'import_python': import_python,
             'namespace': namespace,
 
+            'stop': stop,
+
             'yaml_load': yaml_load,
             'json_load': json_load,
             'yaml_dump': yaml_dump,
@@ -421,7 +430,7 @@ class PythonBaseFile(object):
                     mod = do_compile_internal(
                         self, src,
                         os.path.relpath(self.path.full_path),
-                        self.path.dot_path(), self.path.full_path, ctx)
+                        self.path.dot_path(), self.path.full_path, ctx, (PythonStopCompile,))
                 except UserError as e:
                     o_exc = sys.exc_info()
                     e.prepend_tb(o_exc[2])

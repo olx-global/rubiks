@@ -1,0 +1,4 @@
+print("current_cluster:", current_cluster_name)
+if current_cluster_name == 'production':
+    stop()
+print("current_cluster (after stop):", current_cluster_name)

@@ -14,6 +14,10 @@ Functions and variables that are available in the rubiks files
   variable containing the full path to the base of the repository where the processing
   is taking place
 
+- `stop()`<br>
+  stop execution of the current file (in an "exit" or "return" kind of a way), in such
+  a way that everything is clean.
+
 - `read_file(<relative path>[, cant_read_ok=False])`<br>
   function to read a file and make it available in a variable (eg. for a ConfigMap)
   - `cant_read_ok`: return None instead of raising an exception if the file is unreadable

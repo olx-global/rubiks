@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 
 import imp
 
-def do_compile_internal(obj, src, path, modname, modpath, nsvars=None):
+def do_compile_internal(obj, src, path, modname, modpath, nsvars=None, ignorable_exceptions=None):
     compiled = compile(src, path, 'exec')
 
     mod = imp.new_module(modname)
@@ -17,7 +17,13 @@ def do_compile_internal(obj, src, path, modname, modpath, nsvars=None):
         mod.__dict__.update(nsvars)
 
     setattr(obj, '_current_module', mod)
-    exec compiled in mod.__dict__
+    try:
+        exec compiled in mod.__dict__
+    except Exception as e:
+        if ignorable_exceptions is not None and isinstance(e, ignorable_exceptions):
+            pass
+        else:
+            raise
     delattr(obj, '_current_module')
 
     return mod
