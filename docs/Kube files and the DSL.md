@@ -59,6 +59,9 @@ Functions and variables that are available in the rubiks files
 - `json_load(<string>)`<br>
   generate an object from a string in json format
 
+- `load_object(<dictionary>)`<br>
+  generate the correct type of rubiks object (with data filled in) from a parsed YAML or JSON file
+
 - `get_lookup(<relative_path>[, non_exist_ok=<bool>][, git_crypt_ok=<bool>][, is_confidential=<bool>][, default=...][, assert_type=<type>][, fail_ok=<bool>])`<br>
   get a "lookup" object on a YAML or JSON file, to be able to search for eg, passwords or replicas in a single place.
   This has a single method, `.get_key(<paths...>)` which allows a dot-separated list of paths in fallback order, with

@@ -858,6 +858,29 @@ class KubeObj(KubeBaseObj):
         # python 3
         return this is base
 
+    @classmethod
+    def parse_obj(cls, doc):
+        def rec_find_subclass_by_name(kls, kind):
+            if hasattr(kls, 'apiVersion') and hasattr(kls, 'kind') and kls.kind == kind:
+                return kls
+            for c in kls.__subclasses__():
+                ret = rec_find_subclass_by_name(c, kind)
+                if ret is not None:
+                    return ret
+            return None
+
+        if not isinstance(doc, dict) or 'kind' not in doc or 'apiVersion' not in doc:
+            raise UserError(ValueError(
+                "Document needs to be a dictionary with 'kind' and 'apiVersion' as top-level keys"))
+
+        if cls is not KubeObj:
+            raise ValueError(".parse_obj should only be called as KubeObj.parse_obj(...)")
+        my_cls = rec_find_subclass_by_name(cls, doc['kind'])
+        if my_cls is not None:
+            return my_cls().parser(doc)
+        raise UserError(ValueError(
+            "Unknown document kind: {}, no corresponding rubiks object found".format(doc['kind'])))
+
     def check_namespace(self):
         if isinstance(self.namespace, KubeObj) and hasattr(self.namespace, 'kind') and \
                 self.namespace.kind == 'Namespace':
@@ -867,7 +890,8 @@ class KubeObj(KubeBaseObj):
     def early_init(self, *args, **kwargs):
         if not hasattr(self, 'apiVersion') or not hasattr(self, 'kind') or not hasattr(self, 'identifier'):
             raise TypeError(
-                "Class {} is an abstract base class and can't be instantiated".format(self.__class__.__name__))
+                "Class {} is an abstract base class and can't be instantiated".format(
+                    self.__class__.__name__))
 
 
 class KubeSubObj(KubeBaseObj):

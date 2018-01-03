@@ -297,6 +297,9 @@ class PythonBaseFile(object):
                     return None
                 raise
 
+        def load_object(obj):
+            return KubeObj.parse_obj(obj)
+
         def run_command(*cmd, **kwargs):
             args = {'cwd': None, 'env_clear': False, 'env': None, 'delay': True, 'ignore_rc': True,
                     'rstrip': True, 'eol': False}
@@ -385,6 +388,8 @@ class PythonBaseFile(object):
             'get_lookup': get_lookup,
 
             'fileinfo': fileinfo,
+
+            'load_object': load_object,
 
             'output': output,
             'no_output': no_output,

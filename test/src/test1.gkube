@@ -89,6 +89,53 @@ with namespace('openshifter'):
     ret.new_tls()
     ret.port.targetPort = '8080-tcp'
 
+with namespace('alerts'):
+    alertmgr = """
+apiVersion: v1
+kind: DeploymentConfig
+metadata:
+  name: alertmanager
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: alertmanager
+    spec:
+      containers:
+      - name: alertmanager
+        kind: DockerImage
+        image: prom/alertmanager:v0.8.0
+        ports:
+        - containerPort: 9093
+          protocol: TCP
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 0.5
+            memory: 256Mi
+        volumeMounts:
+        - name: config
+          mountPath: /etc/alertmanager
+      volumes:
+      - name: config
+        configMap:
+          name: alertmanager
+  selector:
+    app: alertmanager
+  strategy:
+    type: Rolling
+    activeDeadlineSeconds: 21600
+    rollingParams:
+      maxSurge: 25%
+      maxUnavailable: 1
+      timeoutSeconds: 600
+  test: false
+  triggers:
+  - type: ConfigChange
+"""
+    load_object(yaml_load(alertmgr))
+
 role = ClusterRole('deployer')
 role.new_rule(resources=['replicationcontrollers', 'deploymentconfigs', 'configmaps'],
               verbs=['get', 'list', 'update', 'watch'])
