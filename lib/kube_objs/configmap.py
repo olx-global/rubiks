@@ -13,6 +13,7 @@ class ConfigMap(KubeObj):
     apiVersion = 'v1'
     kind = 'ConfigMap'
     kubectltype = 'configmap'
+    _output_order = 60
 
     _defaults = {
         'files': {}

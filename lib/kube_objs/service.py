@@ -38,6 +38,7 @@ class Service(KubeObj):
     apiVersion = 'v1'
     kind = 'Service'
     kubectltype = 'service'
+    _output_order = 120
 
     _defaults = {
         'sessionAffinity': None,

@@ -37,6 +37,8 @@ class PolicyRule(KubeSubObj):
 
 
 class RoleBase(KubeObj):
+    _output_order = 5
+
     _defaults = {
         'rules': [],
         }
@@ -68,6 +70,7 @@ class User(KubeObj):
     kind = 'User'
     kubectltype = 'user'
     _uses_namespace = False
+    _output_order = 20
 
     _defaults = {
         'fullName': None,
@@ -94,6 +97,7 @@ class Group(KubeObj):
     kind = 'Group'
     kubectltype = 'group'
     _uses_namespace = False
+    _output_order = 20
 
     _defaults = {
         'users': [],
@@ -148,6 +152,7 @@ class RoleRef(KubeSubObj):
 
 class RoleBindingBase(KubeObj):
     _always_regenerate = True
+    _output_order = 30
 
     _defaults = {
         'roleRef': RoleRef(),

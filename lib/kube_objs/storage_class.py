@@ -14,6 +14,7 @@ class StorageClass(KubeObj):
     kind = 'StorageClass'
     kubectltype = 'storageclass'
     _uses_namespace = False
+    _output_order = 10
 
     _defaults = {
         'provisioner': None,

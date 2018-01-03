@@ -84,6 +84,7 @@ class Route(KubeObj):
     apiVersion = 'v1'
     kind = 'Route'
     kubectltype = 'route'
+    _output_order = 150
 
     _defaults = {
         'host': None,

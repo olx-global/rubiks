@@ -106,6 +106,7 @@ class SecurityContextConstraints(KubeObj):
     kubectltype = 'scc'
     _uses_namespace = False
     _always_regenerate = True
+    _output_order = 10
 
     _defaults = {
         'allowHostDirVolumePlugin': False,

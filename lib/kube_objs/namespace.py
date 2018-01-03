@@ -12,6 +12,7 @@ class Namespace(KubeObj):
     apiVersion = 'v1'
     kind = 'Namespace'
     kubectltype = 'namespace'
+    _output_order = 0
 
     def __init__(self, *args, **kwargs):
         KubeObj.__init__(self, *args, **kwargs)

@@ -81,6 +81,7 @@ class PersistentVolume(KubeObj):
     kind = 'PersistentVolume'
     kubectltype = 'persistentvolume'
     _uses_namespace = False
+    _output_order = 35
 
     _defaults = {
         'accessModes': ['ReadWriteOnce'],
@@ -122,6 +123,7 @@ class PersistentVolumeClaim(KubeObj):
     apiVersion = 'v1'
     kind = 'PersistentVolumeClaim'
     kubectltype = 'persistentvolumeclaim'
+    _output_order = 40
 
     _defaults = {
         'accessModes': ['ReadWriteOnce'],

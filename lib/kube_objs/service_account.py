@@ -52,6 +52,7 @@ class ServiceAccount(KubeObj):
     apiVersion = 'v1'
     kind = 'ServiceAccount'
     kubectltype = 'serviceaccount'
+    _output_order = 15
 
     _defaults = {
         'imagePullSecrets': None,

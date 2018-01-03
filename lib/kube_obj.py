@@ -932,6 +932,8 @@ class KubeObj(KubeBaseObj):
     identifier = 'name'
     has_metadata = True
     _uses_namespace = True
+    _output_order = 100
+    _kind_subclasses = None
 
     _exclude = {
         '.metadata.generation': True,
@@ -954,25 +956,45 @@ class KubeObj(KubeBaseObj):
         return this is base
 
     @classmethod
-    def parse_obj(cls, doc):
-        def rec_find_subclass_by_name(kls, kind):
-            if hasattr(kls, 'apiVersion') and hasattr(kls, 'kind') and kls.kind == kind:
-                return kls
-            for c in kls.__subclasses__():
-                ret = rec_find_subclass_by_name(c, kind)
-                if ret is not None:
-                    return ret
+    def find_class_from_obj(cls, doc):
+        if cls is not KubeObj:
+            return KubeObj.find_class_from_obj(doc)
+
+        if cls._kind_subclasses is None:
+            def rec_get_subclass_by_kind(kls):
+                ret = {}
+                for c in kls.__subclasses__():
+                    r = rec_get_subclass_by_kind(c)
+                    ret.update(r)
+
+                if hasattr(kls, 'apiVersion') and hasattr(kls, 'kind'):
+                    ret[kls.kind] = kls
+
+                return ret
+            cls._kind_subclasses = rec_get_subclass_by_kind(cls)
+
+        if not isinstance(doc, dict) or 'kind' not in doc or 'apiVersion' not in doc:
             return None
+
+        if doc['kind'] in cls._kind_subclasses:
+            return cls._kind_subclasses[doc['kind']]
+
+        return None
+
+    @classmethod
+    def parse_obj(cls, doc):
+        if cls is not KubeObj:
+            raise ValueError(".parse_obj should only be called as KubeObj.parse_obj(...)")
 
         if not isinstance(doc, dict) or 'kind' not in doc or 'apiVersion' not in doc:
             raise UserError(ValueError(
                 "Document needs to be a dictionary with 'kind' and 'apiVersion' as top-level keys"))
 
-        if cls is not KubeObj:
-            raise ValueError(".parse_obj should only be called as KubeObj.parse_obj(...)")
-        my_cls = rec_find_subclass_by_name(cls, doc['kind'])
+        my_cls = cls.find_class_from_obj(doc)
+
         if my_cls is not None:
             return my_cls().parser(doc)
+
         raise UserError(ValueError(
             "Unknown document kind: {}, no corresponding rubiks object found".format(doc['kind'])))
 

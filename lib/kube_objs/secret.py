@@ -26,6 +26,7 @@ class Secret(KubeObj):
     apiVersion = 'v1'
     kind = 'Secret'
     kubectltype = 'secret'
+    _output_order = 50
 
     _defaults = {
         'type': 'Opaque',
