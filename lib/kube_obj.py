@@ -102,6 +102,10 @@ class KubeBaseObj(object):
             self.early_init(*args, **kwargs)
 
         for k in kwargs:
+            if self.has_metadata and k in ('annotations', 'labels'):
+                setattr(self, k, kwargs[k])
+                continue
+
             if k not in self._data:
                 raise UserError(TypeError("{} is not a valid argument for {} constructor".format(
                                           k, self.__class__.__name__)))
@@ -127,6 +131,10 @@ class KubeBaseObj(object):
             kwargs[self.identifier] = args[0]
 
         for k in kwargs:
+            if self.has_metadata and k in ('annotations', 'labels'):
+                setattr(self, k, kwargs[k])
+                continue
+
             if k not in ret._data:
                 raise UserError(TypeError("{} is not a valid argument for {} constructor".format(
                                           k, ret.__class__.__name__)))
@@ -328,6 +336,10 @@ class KubeBaseObj(object):
             txt += '  children: {}\n'.format(', '.join(subclasses))
         if len(cls._parent_types) != 0:
             txt += '  parent types: {}\n'.format(', '.join(sorted(cls._parent_types.keys())))
+        if cls.has_metadata:
+            txt += '  metadata:\n'
+            txt += '    annotations:          {}\n'.format(Map(String, String).name())
+            txt += '    labels:               {}\n'.format(Map(String, String).name())
         txt += '  properties:\n'
         if identifier is not None:
             spc = ''
