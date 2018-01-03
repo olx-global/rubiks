@@ -159,7 +159,7 @@ class Command(object):
     def _get_parser(self):
         if self.__class__.name() is None:
             raise NoSuchCommandException("No such command")
-        return argparse.ArgumentParser(prog='{} {}'.format(sys.argv[0], self.__class__.name()),
+        return argparse.ArgumentParser(prog='{} {}'.format(self.prog, self.__class__.name()),
                                        description=self.__class__.help(),
                                        )
     def do_run(self, argv):
