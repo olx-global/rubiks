@@ -198,6 +198,7 @@ class SurgeSpec(KubeType):
 class SurgeError(Exception):
     pass
 
+
 class SurgeCheck(object):
     @classmethod
     def validate(cls, surge, unavailable):
@@ -232,7 +233,7 @@ class IPv4(String):
             return int(x) <= 255
         if not all(map(comp_ok, ip)):
             return False
-        if ip.startswith('0.') or ip.startswith('127.'):
+        if int(ip[0]) == 0 or int(ip[0]) == 127:
             return False
         return True
 
@@ -345,6 +346,35 @@ class NonEmpty(KubeType):
 
     def do_check(self, value, path):
         return self.check_wrap(value, path) and len(value) != 0
+
+
+class OneOf(KubeType):
+    def __init__(self, *types):
+        assert len(types) > 1
+        self.types = list(map(self.__class__.construct_arg, types))
+
+    def name(self):
+        return self.__class__.__name__ + '<' + ', '.join(map(lambda x: x.name(), self.types)) + '>'
+
+    def original_type(self):
+        # XXX this becomes complicated to do - for the moment assume none
+        return None
+
+    def check(self, value, path=None):
+        if path is None:
+            path = 'self'
+
+        for t in self.types:
+            try:
+                if t.check(value, path):
+                    return True
+            except UserError as e:
+                if not isinstance(e.exc, KubeTypeValidationError):
+                    raise
+            except KubeTypeValidationError:
+                pass
+        raise UserError(KubeTypeValidationError(value, self.name(), path,
+                                                "couldn't match any possible types"))
 
 
 class List(KubeType):
