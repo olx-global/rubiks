@@ -55,13 +55,31 @@ class Command_gen_py(Command):
             return 1
 
         namespace = args.namespace
-        if namespace is None:
-            try:
-                namespace = value['metadata']['namespace']
-            except KeyError:
-                pass
-        indent = args.indent
-        if (args.namespace is not None or args.with_namespace) and namespace is not None:
-            print((' ' * indent) + 'with namespace({}):'.format(repr(namespace)))
-            indent += 4
-        print((' ' * indent) + KubeObj.parse_obj(value).dump_obj(indent, args.include_defaults))
+        if 'kind' in value and value['kind'] == 'List':
+            values = value['items']
+        else:
+            values = [value]
+
+        last_ns = None
+
+        for v in values:
+            if args.namespace is None:
+                try:
+                    namespace = v['metadata']['namespace']
+                except KeyError:
+                    pass
+
+            indent = args.indent
+
+            obj = KubeObj.parse_obj(v)
+
+            if not obj._uses_namespace:
+                namespace = None
+
+            if namespace is not None and (args.namespace is not None or args.with_namespace):
+                if namespace != last_ns:
+                    print((' ' * args.indent) + 'with namespace({}):'.format(repr(namespace)))
+                indent += 4
+
+            print((' ' * indent) + obj.dump_obj(indent, args.include_defaults) + '\n')
+            last_ns = namespace
