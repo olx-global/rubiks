@@ -59,6 +59,15 @@ class PersistentVolumeRef(KubeSubObj):
         'ns': Nullable(Identifier),
         }
 
+    _parse = {
+        'ns': ('namespace',),
+        }
+
+    _exclude = {
+        '.resourceVersion': True,
+        '.uid': True,
+        }
+
     def render(self):
         ret = self.renderer(order=('apiVersion', 'name', 'kind', 'ns'))
         if 'ns' in ret:
@@ -89,6 +98,16 @@ class PersistentVolume(KubeObj):
         'claimRef': Nullable(PersistentVolumeRef),
         }
 
+    _parse_default_base = ('spec',)
+
+    _parse = {
+        'capacity': ('spec', 'capacity', 'storage'),
+        }
+
+    _exclude = {
+        '.status': True,
+        }
+
     def do_validate(self):
         return len(filter(lambda x: self._data[x] is not None, ('awsElasticBlockStore',))) == 1
 
@@ -116,6 +135,16 @@ class PersistentVolumeClaim(KubeObj):
         'request': Memory,
         'selector': Nullable(BaseSelector),
         'volumeName': Nullable(Identifier),
+        }
+
+    _parse_default_base = ('spec',)
+
+    _parse = {
+        'request': ('spec', 'resources', 'requests', 'storage'),
+        }
+
+    _exclude = {
+        '.status': True,
         }
 
     def xf_volumeName(self, v):

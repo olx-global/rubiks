@@ -28,6 +28,18 @@ class DCBaseUpdateStrategy(KubeSubObj):
         'activeDeadlineSeconds': Nullable(Positive(NonZero(Integer))),
         }
 
+    _exclude = {
+        '.type': True,
+        }
+
+    def find_subparser(self, doc):
+        if 'type' in doc and doc['type'] == 'Recreate':
+            return DCRecreateStrategy
+        if 'type' in doc and doc['type'] == 'Rolling':
+            return DCRollingStrategy
+        if 'type' in doc and doc['type'] == 'Custom':
+            return DCCustomStrategy
+
 
 class DCCustomParams(KubeSubObj, EnvironmentPreProcessMixin):
     _defaults = {
@@ -70,6 +82,17 @@ class DCTagImages(KubeSubObj):
         'toResourceVersion': Nullable(String),
         'toUid': Nullable(String),
         'toApiVersion': Nullable(String),
+        }
+
+    _parse = {
+        'containerName': ('containerName',),
+        'toFieldPath': ('to', 'fieldPath'),
+        'toKind': ('to', 'kind'),
+        'toName': ('to', 'name'),
+        'toNamespace': ('to', 'namespace'),
+        'toResourceVersion': ('to', 'resourceVersion'),
+        'toUid': ('to', 'uid'),
+        'toApiVersion': ('to', 'apiVersion'),
         }
 
     def render(self):
@@ -227,7 +250,15 @@ class DCCustomStrategy(DCBaseUpdateStrategy):
 
 
 class DCTrigger(KubeSubObj):
-    pass
+    _exclude = {
+        '.type': True,
+        }
+
+    def find_subparser(self, doc):
+        if 'type' in doc and doc['type'] == 'ConfigChange':
+            return DCConfigChangeTrigger
+        if 'type' in doc and doc['type'] == 'ImageChange':
+            return DCImageChangeTrigger
 
 
 class DCConfigChangeTrigger(DCTrigger):
@@ -260,6 +291,18 @@ class DCImageChangeTrigger(DCTrigger):
         'fromApiVersion': Nullable(String),
         'fromFieldPath': Nullable(String),
         'fromKind': Nullable(Enum('ImageStreamTag')),
+        }
+
+    _parse_default_base = ('imageChangeParams',)
+
+    _parse = {
+        'fromName': ('imageChangeParams', 'from', 'name'),
+        'fromNamespace': ('imageChangeParams', 'from', 'namespace'),
+        'fromResourceVersion': ('imageChangeParams', 'from', 'resourceVersion'),
+        'fromUid': ('imageChangeParams', 'from', 'uid'),
+        'fromApiVersion': ('imageChangeParams', 'from', 'apiVersion'),
+        'fromFieldPath': ('imageChangeParams', 'from', 'fieldPath'),
+        'fromKind': ('imageChangeParams', 'from', 'kind'),
         }
 
     def render(self):
@@ -306,6 +349,16 @@ class DeploymentConfig(KubeObj):
         'strategy': DCBaseUpdateStrategy,
         'test': Boolean,
         'triggers': List(DCTrigger),
+        }
+
+    _parse_default_base = ('spec',)
+
+    _parse = {
+        'pod_template': ('spec', 'template'),
+        }
+
+    _exclude = {
+        '.status': True,
         }
 
     def render(self):

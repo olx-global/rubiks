@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 
 from base64 import b64decode
 from collections import OrderedDict
+import json
 
 from kube_obj import KubeObj
 from kube_types import *
@@ -76,7 +77,7 @@ class DockerCredentials(Secret):
         'type': 'kubernetes.io/dockercfg',
         'secrets': {'.dockercfg': ''},
         'dockers': {},
-    }
+        }
 
     _types = {
         'dockers': Map(String, Map(String, String)),
@@ -84,7 +85,27 @@ class DockerCredentials(Secret):
 
     def parser_fixup(self):
         Secret.parser_fixup(self)
-        # XXX fixup docker users and passwords here
+        self._data['dockers'] = {}
+        try:
+            dockercfg = json.loads(self._data['secrets']['.dockercfg'])
+            for dckr_src in dockercfg:
+                self._data['dockers'][dckr_src] = {}
+
+                for k in ('email', 'username', 'password'):
+                    if k in dockercfg[dckr_src]:
+                        self._data['dockers'][dckr_src][k] = dockercfg[dckr_src][k]
+
+                if 'auth' in dockercfg[dckr_src]:
+                    try:
+                        auth = b64decode(dockercfg[dckr_src]['auth'])
+                        if ':' in auth:
+                            self._data['dockers'][dckr_src]['username'], self._data['dockers'][dckr_src]['password'] = \
+                                auth.split(':', 1)
+                    except:
+                        pass
+        except:
+            pass
+        self._data['secrets']['.dockercfg'] = ''
 
     def render(self):
         if len(self._data['dockers']) == 0:
@@ -109,7 +130,7 @@ class TLSCredentials(Secret):
         'secrets': {'tls.crt': '', 'tls.key': '', 'tls.pem': ''},
         'tls_cert': '',
         'tls_key': '',
-    }
+        }
 
     _types = {
         'tls_cert': String,

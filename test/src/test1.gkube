@@ -60,7 +60,7 @@ with namespace('myapp'):
     ctr = ret.pod_template.containers[-1]
     ctr.env = {'MANAGEMENT_PORT': '8081', 'MYAPP_MAGIC_SECRET': secret.get_key('magic_token')}
 
-    ret = LoadBalancerService(name='myapp', selector=labels)
+    ret = AWSLoadBalancerService(name='myapp', selector=labels)
     ret.ports.append(ServicePort(name='https', protocol='TCP', port=443, targetPort=8080))
     ret['aws-load-balancer-backend-protocol'] = 'https'
     ret['aws-load-balancer-ssl-cert'] = 'arn:aws:iam::12345:server-certificate/myapp.certificate'

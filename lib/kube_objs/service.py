@@ -6,6 +6,8 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from collections import OrderedDict
+import sys
+import traceback
 from kube_obj import KubeObj, KubeSubObj, order_dict
 from kube_types import *
 from user_error import UserError
@@ -25,7 +27,7 @@ class ServicePort(KubeSubObj):
         'name': Nullable(Identifier),
         'protocol': Enum('TCP', 'UDP'),
         'port': Positive(NonZero(Integer)),
-        'targetPort': Positive(NonZero(Integer)),
+        'targetPort': OneOf(Positive(NonZero(Integer)), Identifier),
         }
 
     def render(self):
@@ -44,11 +46,23 @@ class Service(KubeObj):
         }
 
     _types = {
-        'sessionAffinity': Nullable(Boolean),
+        'sessionAffinity': Nullable(Enum('ClientIP', 'None')),
         'ports': NonEmpty(List(ServicePort)),
         'selector': NonEmpty(Map(String, String)),
         }
 
+    _exclude = {
+        '.spec.type': True,
+        '.status': True,
+        }
+
+    _parse_default_base = ('spec',)
+
+    def find_subparser(self, doc):
+        if 'spec' in doc and 'type' in doc['spec'] and doc['spec']['type'] == 'ClusterIP':
+            return ClusterIPService
+        if 'spec' in doc and 'type' in doc['spec'] and doc['spec']['type'] == 'LoadBalancer':
+            return AWSLoadBalancerService
 
     def xf_selector(self, v):
         if isinstance(v, PodTemplateSpec):
@@ -89,7 +103,11 @@ class Service(KubeObj):
 
         return ret
 
-    def internal_addr(self):
+    def internal_addr(self, *args, **kwargs):
+        caller_file, caller_line, caller_fn = traceback.extract_stack(limit=2)[0][0:3]
+        print("internal_addr() called on non-ClusterIPService at {}:{} in {} - check output".format(
+                  caller_file, caller_line, caller_fn,
+                  ), file=sys.stderr)
         return None
 
 
@@ -141,8 +159,11 @@ class ClusterIPService(Service):
         if port not in list(map(lambda x: x._data['port'], ports)):
             return None
 
-        ret = scheme + '://' + self._data['name'] + '.' + self.namespace.name + '.svc.cluster.local'
-        if scheme != 'http' or port != 80:
+        ret = ''
+        if scheme is not None:
+            ret += scheme + '://'
+        ret += self._data['name'] + '.' + self.namespace.name + '.svc.cluster.local'
+        if scheme is None or scheme != 'http' or port != 80:
             ret += ':{}'.format(port)
 
         return ret
@@ -155,7 +176,7 @@ class ClusterIPService(Service):
         return {'metadata': {'name': self._data['name']}, 'spec': spec}
 
 
-class LoadBalancerService(Service):
+class AWSLoadBalancerService(Service):
     _defaults = {
         'aws-load-balancer-backend-protocol': None,
         'aws-load-balancer-ssl-cert': None,
@@ -167,6 +188,12 @@ class LoadBalancerService(Service):
         'aws-load-balancer-ssl-cert': Nullable(ARN),
         'externalTrafficPolicy': Nullable(Enum('Cluster', 'Local')),
         }
+
+    def parser_fixup(self):
+        for i in ('aws-load-balancer-backend-protocol', 'aws-load-balancer-ssl-cert'):
+            if 'service.beta.kubernetes.io/' + i in self.annotations:
+                self._data[i] = self.annotations['service.beta.kubernetes.io/' + i]
+                del self.annotations['service.beta.kubernetes.io/' + i]
 
     def render(self):
         ret = self.renderer(order=('selector', 'ports'))

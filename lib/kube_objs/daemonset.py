@@ -10,6 +10,7 @@ from .pod import *
 from .selectors import BaseSelector
 from .mixins import SelectorsPreProcessMixin
 
+
 class DaemonSet(KubeObj, SelectorsPreProcessMixin):
     apiVersion = 'extensions/v1beta1'
     kind = 'DaemonSet'

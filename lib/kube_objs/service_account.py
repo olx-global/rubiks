@@ -9,6 +9,7 @@ from kube_obj import KubeObj, KubeSubObj
 from kube_types import *
 from .secret import Secret
 
+
 class SASecretSubject(KubeSubObj):
     _defaults = {
         'name': None,
@@ -22,6 +23,10 @@ class SASecretSubject(KubeSubObj):
         'ns': Nullable(Identifier),
         }
 
+    _parse = {
+        'ns': ('namespace',),
+        }
+
     def render(self):
         ret = self.renderer(order=('name', 'kind', 'ns'))
         if 'ns' in ret:
@@ -33,14 +38,15 @@ class SASecretSubject(KubeSubObj):
 class SAImgPullSecretSubject(KubeSubObj):
     _defaults = {
         'name': None,
-        }
+    }
 
     _types = {
         'name': Identifier,
-        }
+    }
 
     def render(self):
         return self.renderer()
+
 
 class ServiceAccount(KubeObj):
     apiVersion = 'v1'

@@ -19,6 +19,10 @@ class RouteDest(KubeSubObj):
         'weight': Positive(NonZero(Integer)),
         }
 
+    def find_subparser(self, doc):
+        if 'kind' in doc and doc['kind'] == 'Service':
+            return RouteDestService
+
 
 class RouteDestService(RouteDest):
     _defaults = {
@@ -27,6 +31,10 @@ class RouteDestService(RouteDest):
 
     _types = {
         'name': Identifier,
+        }
+
+    _exclude = {
+        '.kind': True,
         }
 
     def render(self):
@@ -92,6 +100,26 @@ class Route(KubeObj):
         'port': RouteDestPort,
         'wildcardPolicy': Enum('Subdomain', 'None'),
         }
+
+    _parse_default_base = ('spec',)
+
+    _exclude = {
+        '.status': True,
+        }
+
+    def pre_parse_fixup(self, doc):
+        ret = {'spec': {}}
+        for k in doc:
+            if k == 'spec':
+                for kk in doc['spec']:
+                    if k not in ('to', 'alternateBackends'):
+                        ret['spec'][kk] = doc['spec'][kk]
+            else:
+                ret[k] = doc[k]
+        ret['spec']['to'] = [doc['spec']['to']]
+        if 'alternateBackends' in doc['spec']:
+            ret['spec']['to'].extend(doc['spec']['alternateBackends'])
+        return ret
 
     def render(self):
         spec = self.renderer(order=('host', 'to', 'port'))

@@ -23,6 +23,11 @@ class Namespace(KubeObj):
     def check_namespace(self):
         return True
 
+    _exclude = {
+        '.status': True,
+        '.spec': True,
+        }
+
     def render(self):
         if self.name in ('kube-system', 'default'):
             return None

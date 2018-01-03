@@ -12,7 +12,15 @@ from .selectors import *
 
 
 class DplBaseUpdateStrategy(KubeSubObj):
-    pass
+    _exclude = {
+        '.type': True,
+        }
+
+    def find_subparser(self, doc):
+        if 'type' in doc and doc['type'] == 'Recreate':
+            return DplRecreateStrategy
+        if 'type' in doc and doc['type'] == 'RollingUpdate':
+            return DplRollingUpdateStrategy
 
 
 class DplRecreateStrategy(DplBaseUpdateStrategy):
@@ -30,6 +38,8 @@ class DplRollingUpdateStrategy(DplBaseUpdateStrategy):
         'maxSurge': SurgeSpec,
         'maxUnavailable': SurgeSpec,
         }
+
+    _parse_default_base = ('rollingUpdate',)
 
     def do_validate(self):
         return SurgeCheck.validate(self._data['maxSurge'], self._data['maxUnavailable'])
@@ -55,9 +65,19 @@ class ReplicationController(KubeObj):
 
     _types = {
         'minReadySeconds': Nullable(Positive(NonZero(Integer))),
-        'pod_template': PodTemplateSpec(),
+        'pod_template': PodTemplateSpec,
         'replicas': Positive(NonZero(Integer)),
         'selector': Nullable(Map(String, String)),
+        }
+
+    _parse_default_base = ('spec',)
+
+    _parse = {
+        'pod_template': ('spec', 'template'),
+        }
+
+    _exclude = {
+        '.status': True,
         }
 
     def render(self):
@@ -85,12 +105,22 @@ class Deployment(KubeObj):
     _types = {
         'minReadySeconds': Nullable(Positive(NonZero(Integer))),
         'paused': Nullable(Boolean),
-        'pod_template': PodTemplateSpec(),
+        'pod_template': PodTemplateSpec,
         'progressDeadlineSeconds': Nullable(Positive(NonZero(Integer))),
         'replicas': Positive(NonZero(Integer)),
         'revisionHistoryLimit': Nullable(Positive(NonZero(Integer))),
         'selector': Nullable(BaseSelector),
         'strategy': Nullable(DplBaseUpdateStrategy),
+        }
+
+    _parse_default_base = ('spec',)
+
+    _parse = {
+        'pod_template': ('spec', 'template'),
+        }
+
+    _exclude = {
+        '.status': True,
         }
 
     def render(self):

@@ -18,12 +18,12 @@ class StorageClass(KubeObj):
     _defaults = {
         'provisioner': None,
         'parameters': {},
-    }
+        }
 
     _types = {
         'provisioner': String,
         'parameters': Map(String, String),
-    }
+        }
 
     def render(self):
         if len(self._data['parameters']) == 0:

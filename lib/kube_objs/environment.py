@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 from kube_obj import KubeSubObj, order_dict
 from kube_types import *
 
+
 class ContainerEnvBaseSpec(KubeSubObj):
     _defaults = {
         'name': '',
@@ -16,6 +17,12 @@ class ContainerEnvBaseSpec(KubeSubObj):
     _types = {
         'name': NonEmpty(String),
         }
+
+    def find_subparser(self, doc):
+        if 'value' in doc or 'valueFrom' not in doc:
+            return ContainerEnvSpec
+        if 'valueFrom' in doc and 'secretKeyRef' in doc['valueFrom']:
+            return ContainerEnvSecretSpec
 
 
 class ContainerEnvSpec(ContainerEnvBaseSpec):
@@ -29,7 +36,7 @@ class ContainerEnvSpec(ContainerEnvBaseSpec):
 
     def render(self):
         ret = self.renderer(order=('name', 'value'))
-        if ret['value'] == '':
+        if 'value' in ret and ret['value'] == '':
             del ret['value']
         return ret
 
@@ -42,7 +49,12 @@ class ContainerEnvSecretSpec(ContainerEnvBaseSpec):
 
     _types = {
         'key': NonEmpty(String),
-        'secret_name': Identifier(),
+        'secret_name': Identifier,
+        }
+
+    _parse = {
+        'key': ('valueFrom', 'secretKeyRef', 'key'),
+        'secret_name': ('valueFrom', 'secretKeyRef', 'name'),
         }
 
     def render(self):

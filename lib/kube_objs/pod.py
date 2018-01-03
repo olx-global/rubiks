@@ -66,6 +66,14 @@ class ContainerResourceEachSpec(KubeSubObj):
         'memory': Nullable(Memory),
         }
 
+    def xf_cpu(self, v):
+        if String().do_check(v, None):
+            if v.isdigit() or v.strip('0123456789') == '.':
+                return float(v)
+            elif v.endswith('m') and v[:-1].isdigit():
+                return float(v[:-1]) / 1000
+        return v
+
     def render(self):
         return self.renderer(order=('cpu', 'memory'), return_none=True)
 
@@ -129,14 +137,10 @@ class ContainerProbeBaseSpec(KubeSubObj):
             return ContainerProbeHTTPSpec
 
     def render(self):
-        ret = order_dict({
-            'initialDelaySeconds': self._data['initialDelaySeconds'],
-            'timeoutSeconds': self._data['timeoutSeconds'],
-            'periodSeconds': self._data['periodSeconds'],
-            'failureThreshold': self._data['failureThreshold'],
-            'successThreshold': self._data['successThreshold'],
-            }, ('initialDelaySeconds', 'timeoutSeconds', 'periodSeconds',
-                'successThreshold', 'failureThreshold'))
+        ret = OrderedDict()
+        for i in ('initialDelaySeconds', 'timeoutSeconds', 'periodSeconds', 'failureThreshold', 'successThreshold'):
+            if self._data[i] is not None:
+                ret[i] = self._data[i]
 
         if not hasattr(self, 'render_check'):
             return None
@@ -425,17 +429,46 @@ class PodVolumeHostSpec(PodVolumeBaseSpec):
         return r
 
 
-class PodVolumeConfigMapSpec(PodVolumeBaseSpec):
+class PodVolumeItemMapper(PodVolumeBaseSpec):
+    _defaults = {
+        'item_map': {},
+        }
+
+    _types = {
+        'item_map': Nullable(Map(String, String)),
+        }
+
+    def map_item_map(self, ret, base):
+        if len(self._data['item_map']) != 0:
+            ret[base]['items'] = []
+            for k in sorted(self._data['item_map'].keys()):
+                r = OrderedDict(key=k)
+                r['path'] = self._data['item_map'][k]
+                ret[base]['items'].append(r)
+
+    def parser_fixup(self):
+        if isinstance(self._data['item_map'], list):
+            ret = {}
+            for i in self._data['item_map']:
+                if 'key' in i:
+                    if 'path' in i:
+                        ret[i['key']] = i['path']
+                    else:
+                        ret[i['key']] = None
+                else:
+                    print("Warning unparsed item_map: {}: {}".format(self.__class__.__name__, i), file=sys.stderr)
+            self._data['item_map'] = ret
+
+
+class PodVolumeConfigMapSpec(PodVolumeItemMapper):
     _defaults = {
         'defaultMode': None,
         'map_name': '',
-        'item_map': {},
         }
 
     _types = {
         'defaultMode': Nullable(Positive(Integer)),
         'map_name': Identifier,
-        'item_map': Nullable(Map(String, String)),
         }
 
     _parse = {
@@ -451,32 +484,25 @@ class PodVolumeConfigMapSpec(PodVolumeBaseSpec):
         if self._data['defaultMode'] is not None:
             ret['configMap']['defaultMode'] = self._data['defaultMode']
 
-        if len(self._data['item_map']) != 0:
-            ret['configMap']['items'] = []
-            for k in sorted(self._data['item_map'].keys()):
-                r = OrderedDict(key=k)
-                r['path'] = self._data['item_map'][k]
-                ret['configMap']['items'].append(r)
+        self.map_item_map(ret, 'configMap')
 
         return ret
 
 
-class PodVolumeSecretSpec(PodVolumeBaseSpec):
+class PodVolumeSecretSpec(PodVolumeItemMapper):
     _defaults = {
         'defaultMode': None,
         'secret_name': '',
-        'item_map': {},
         }
 
     _types = {
         'defaultMode': Nullable(Positive(Integer)),
         'secret_name': Identifier,
-        'item_map': Nullable(Map(String, String)),
         }
 
     _parse = {
         'defaultMode': ('secret', 'defaultMode'),
-        'map_name': ('secret', 'secretName'),
+        'secret_name': ('secret', 'secretName'),
         'item_map': ('secret', 'items'),
         }
 
@@ -487,12 +513,7 @@ class PodVolumeSecretSpec(PodVolumeBaseSpec):
         if self._data['defaultMode'] is not None:
             ret['secret']['defaultMode'] = self._data['defaultMode']
 
-        if len(self._data['item_map']) != 0:
-            ret['secret']['items'] = []
-            for k in sorted(self._data['item_map'].keys()):
-                r = OrderedDict(key=k)
-                r['path'] = self._data['item_map'][k]
-                ret['secret']['items'].append(r)
+        self.map_item_map(ret, 'secret')
 
         return ret
 

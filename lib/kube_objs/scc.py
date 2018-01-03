@@ -29,6 +29,12 @@ class SCCSELinux(KubeSubObj):
         'user': Nullable(String),
         }
 
+    _parse_default_base = ('seLinuxOptions',)
+
+    _parse = {
+        'strategy': ('type',),
+        }
+
     def render(self):
         ret = self.renderer()
         if len(ret) == 0:

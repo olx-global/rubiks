@@ -79,6 +79,10 @@ class User(KubeObj):
         'identities': NonEmpty(List(NonEmpty(String))),
         }
 
+    _exclude = {
+        '.groups': True,
+        }
+
     def render(self):
         ret = self.renderer()
         return {'metadata': {'name': self._data['name']},
@@ -117,6 +121,10 @@ class RoleSubject(KubeSubObj):
         'ns': Nullable(Identifier),
         }
 
+    _parse = {
+        'ns': ('namespace',),
+        }
+
     def render(self):
         ret = self.renderer(order=('name', 'kind', 'ns'))
         if 'ns' in ret:
@@ -149,6 +157,11 @@ class RoleBindingBase(KubeObj):
     _types = {
         'roleRef': RoleRef,
         'subjects': NonEmpty(List(RoleSubject)),
+        }
+
+    _exclude = {
+        '.groupNames': True,
+        '.userNames': True,
         }
 
     def xf_roleRef(self, v):
