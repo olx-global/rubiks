@@ -1,0 +1,15 @@
+foo:
+  bar:
+    baz: qux
+  xyzzy: 1
+
+qux:
+  staging:
+    bar: foo
+  virginia:
+    bar: xyzzy
+
+xyzzy:
+- foo: 1
+- bar: 2
+- baz: 3

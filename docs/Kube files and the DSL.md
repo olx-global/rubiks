@@ -55,6 +55,17 @@ Functions and variables that are available in the rubiks files
 - `json_load(<string>)`<br>
   generate an object from a string in json format
 
+- `get_lookup(<relative_path>[, non_exist_ok=<bool>][, git_crypt_ok=<bool>][, is_confidential=<bool>][, default=...][, assert_type=<type>][, fail_ok=<bool>])`<br>
+  get a "lookup" object on a YAML or JSON file, to be able to search for eg, passwords or replicas in a single place.
+  This has a single method, `.get_key(<paths...>)` which allows a dot-separated list of paths in fallback order, with
+  the global default at the end.
+  - `non_exist_ok` (default: `True`) allows the file not to exist and to return a default unknown or global default type
+  - `git_crypt_ok` (default: `True`) allows the file to be a still-encrypted git-crypt and return a default unknown or global default type
+  - `is_confidential` (default: `False`) will make sure the return from `.get_key(...)` is a `Confidential` type and treated as a secret
+  - `default` (default: `None`) if not `None` will give a default answer in the case of a key not existing
+  - `assert_type` (default: `None`) if not `None` will be an argument to isinstance on the return value and will raise a `TypeError` if the value isn't valid
+  - `fail_ok` (default: `False`) if we couldn't parse the file as either JSON or YAML then raise a `ValueError` or if `True` treat this as nonexistent above.
+
 - `fileinfo()`<br>
   returns a dictionary with information about full path and repository-relative information of
   the current file and the one being called outside

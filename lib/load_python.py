@@ -18,6 +18,7 @@ from kube_obj import KubeObj, KubeBaseObj
 from obj_registry import obj_registry
 from user_error import UserError, user_originated
 from output import RubiksOutputError, OutputCollection
+from lookup import Resolver
 from util import mkdir_p
 
 import kube_objs
@@ -273,6 +274,11 @@ class PythonBaseFile(object):
             return json.loads(string)
 
         @_user_error
+        def get_lookup(path, **kwargs):
+            path = self.path.rel_path(path)
+            return Resolver(path, **kwargs)
+
+        @_user_error
         def read_file(path, cant_read_ok=False):
             path = self.path.rel_path(path)
             try:
@@ -366,6 +372,7 @@ class PythonBaseFile(object):
 
             'read_file': read_file,
             'run_command': run_command,
+            'get_lookup': get_lookup,
 
             'fileinfo': fileinfo,
 
@@ -476,11 +483,14 @@ class PythonImportPerClusterFile(PythonBaseFile):
         if len(clusters) == 0:
             self.fallback = True
             save_cluster = KubeBaseObj._default_cluster
+            res_save_cluster = Resolver.current_cluster
             try:
                 KubeBaseObj._default_cluster = None
+                Resolver.current_cluster = None
                 self.module = self.do_compile({'current_cluster': None, 'current_cluster_name': None})
             finally:
                 KubeBaseObj._default_cluster = save_cluster
+                Resolver.current_cluster = res_save_cluster
 
         else:
             self.fallback = False
@@ -488,32 +498,35 @@ class PythonImportPerClusterFile(PythonBaseFile):
             for c in self.collection().repository.get_clusters():
                 this_cluster = self.collection().repository.get_cluster_info(c)
                 save_cluster = KubeBaseObj._default_cluster
+                res_save_cluster = Resolver.current_cluster
                 try:
                     KubeBaseObj._default_cluster = this_cluster
+                    Resolver.current_cluster = this_cluster
                     self.default_import_args = {'cluster': c}
                     self.module[c] = self.do_compile({'current_cluster': this_cluster, 'current_cluster_name': c})
                 finally:
                     KubeBaseObj._default_cluster = save_cluster
+                    Resolver.current_cluster = res_save_cluster
 
     def get_module(self, **kwargs):
         if self.fallback:
             return self.module
         if not 'cluster' in kwargs:
-            raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube files")
+            raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube or .ckube files")
         return self.module[kwargs['cluster']]
 
     def get_symnames(self, **kwargs):
         if self.fallback:
             return self.module.__dict__.keys()
         if not 'cluster' in kwargs:
-            raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube files")
+            raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube or .ckube files")
         return self.module[kwargs['cluster']].__dict__.keys()
 
     def get_symbol(self, symname, **kwargs):
         if self.fallback:
             return self.module.__dict__[symname]
         if not 'cluster' in kwargs:
-            raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube files")
+            raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube or .ckube files")
         return self.module[kwargs['cluster']].__dict__[symname]
 
 class PythonRunPerClusterFile(PythonImportPerClusterFile):
