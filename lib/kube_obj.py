@@ -127,19 +127,19 @@ class KubeBaseObj(object):
             kwargs[self.identifier] = args[0]
 
         for k in kwargs:
-            if k not in self._data:
+            if k not in ret._data:
                 raise UserError(TypeError("{} is not a valid argument for {} constructor".format(
-                                          k, self.__class__.__name__)))
+                                          k, ret.__class__.__name__)))
 
             if not isinstance(kwargs[k], (list, dict)):
-                self._data[k] = kwargs[k]
+                ret._data[k] = kwargs[k]
             elif isinstance(kwargs[k], list):
-                self._data[k] = []
-                self._data[k].extend(kwargs[k])
+                ret._data[k] = []
+                ret._data[k].extend(kwargs[k])
             else:
-                if not isinstance(self._data[k], dict):
-                    self._data[k] = {}
-                self._data[k].update(kwargs[k])
+                if not isinstance(ret._data[k], dict):
+                    ret._data[k] = {}
+                ret._data[k].update(kwargs[k])
 
         return ret
 
