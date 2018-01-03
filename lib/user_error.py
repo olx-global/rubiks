@@ -12,6 +12,7 @@ __all__ = ['paths', 'UserError', 'user_errors', 'user_originated']
 
 paths = ()
 
+
 class fake_traceback(object):
     def __init__(self, tb=None):
         if tb is None:
@@ -78,6 +79,7 @@ class UserError(Exception):
     def __repr__(self):
         return "{}({})".format(self.__class__.__name__, repr(self.exc))
 
+
 class UserInternalError(UserError):
     def __str__(self):
         return "while trying to process user code found {} exception internally: {}". \
@@ -134,6 +136,7 @@ def _filter_traceback(tb, caller_fn=None, fake_start_frame=None):
         tb = tb.tb_next
 
     return ret.tb_next
+
 
 class user_errors(object):
     def __init__(self, ignore_this=False, dont_filter=False):

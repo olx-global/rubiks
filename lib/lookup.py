@@ -13,14 +13,18 @@ from kube_yaml import yaml_load
 from loader import Path
 from user_error import UserError
 
+
 class InvalidKey(Exception):
     pass
+
 
 class KeyNotExist(InvalidKey):
     pass
 
+
 class KeyIsBranch(InvalidKey):
     pass
+
 
 class Resolver(object):
     current_cluster = None

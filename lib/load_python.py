@@ -153,6 +153,7 @@ class PythonFileCollection(loader.Loader):
     def gen_output(self):
         self.outputs.write_output()
 
+
 class PythonBaseFile(object):
     _kube_objs = None
     _kube_vartypes = None
@@ -472,12 +473,15 @@ class PythonBaseFile(object):
 
         return mod
 
+
 class PythonImportFile(PythonBaseFile):
     extensions = ('kube',)
+
 
 class PythonRunOnceFile(PythonImportFile):
     default_export_objects = True
     extensions = ('gkube',)
+
 
 class PythonImportPerClusterFile(PythonBaseFile):
     compile_in_init = False
@@ -537,6 +541,7 @@ class PythonImportPerClusterFile(PythonBaseFile):
         if not 'cluster' in kwargs:
             raise loader.LoaderImportError("must specify 'cluster' param when importing .ekube or .ckube files")
         return self.module[kwargs['cluster']].__dict__[symname]
+
 
 class PythonRunPerClusterFile(PythonImportPerClusterFile):
     default_export_objects = True

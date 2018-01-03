@@ -11,6 +11,7 @@ from repository import RepositoryError
 import obj_registry
 import loader
 
+
 class CommandRepositoryBase(object):
     def get_repository(self):
         try:
@@ -19,6 +20,7 @@ class CommandRepositoryBase(object):
             raise RuntimeException(str(e))
         obj_registry.init(r.is_openshift)
         return r
+
 
 class LoaderBase(object):
     def loader_setup(self):

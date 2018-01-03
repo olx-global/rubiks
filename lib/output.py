@@ -362,6 +362,7 @@ class ConfidentialOutputGitMgmt(ConfidentialOutput):
                 f.write('\n'.join(lines) + '\n')
             os.rename(os.path.join(gmp, self.file + '.tmp'), os.path.join(gmp, self.file))
 
+
 class ConfidentialOutputGitIgnore(ConfidentialOutputGitMgmt):
     file = '.gitignore'
 

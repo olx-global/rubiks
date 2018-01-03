@@ -8,8 +8,10 @@ from __future__ import unicode_literals
 import os
 import subprocess
 
+
 class RepositoryError(Exception):
     pass
+
 
 class Repository(object):
     """object representing the repository in which the compiler is run"""
@@ -38,6 +40,7 @@ class Repository(object):
 
     def populate_status(self):
         self.status = GitStatus(self.basepath)
+
 
 class GitFile(object):
     @classmethod
@@ -72,10 +75,12 @@ class GitFile(object):
             pass
         return None
 
+
 class GitUntrackedFile(GitFile):
     def __init__(self, path, base):
         self.path = path
         self.base = base
+
 
 class GitAlteredFile(GitFile):
     def parse_xy(self, XY):
@@ -132,6 +137,7 @@ class GitAlteredFile(GitFile):
 
         return out
 
+
 class GitMultiAlteredFile(GitAlteredFile):
     def parse_expecting(self, line, char):
         if not line.startswith(b'2 '):
@@ -151,6 +157,7 @@ class GitMultiAlteredFile(GitAlteredFile):
         self.index_obj = ll[7].decode('utf8')
         self.score = int(ll[8][1:])
 
+
 class GitModifiedFile(GitAlteredFile):
     def __init__(self, line, base):
         if not line.startswith(b'1 '):
@@ -167,6 +174,7 @@ class GitModifiedFile(GitAlteredFile):
         self.head_obj = ll[6].decode('utf8')
         self.index_obj = ll[7].decode('utf8')
 
+
 class GitUnmergedFile(GitAlteredFile):
     def __init__(self, line, base):
         if not line.startswith(b'u '):
@@ -182,15 +190,18 @@ class GitUnmergedFile(GitAlteredFile):
         self.stage3_mode = int(ll[5], 8)
         self.tree_mode = int(ll[6], 8)
 
+
 class GitRenamedFile(GitMultiAlteredFile):
     def __init__(self, line, base):
         self.parse_expecting(line, b'R'[0])
         self.base = base
 
+
 class GitCopiedFile(GitMultiAlteredFile):
     def __init__(self, line, base):
         self.parse_expecting(line, b'C'[0])
         self.base = base
+
 
 class GitStatus(object):
     def __init__(self, base):

@@ -10,6 +10,7 @@ from .bases import CommandRepositoryBase, LoaderBase
 import load_python
 import sys
 
+
 class Command_generate(Command, LoaderBase, CommandRepositoryBase):
     """generate the yaml files in the output directory by running the source"""
 

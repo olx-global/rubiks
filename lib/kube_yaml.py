@@ -20,6 +20,7 @@ __all__ = ['quoted', 'literal', 'yaml_safe_dump', 'yaml_load']
 # This file is very magical, allowing for a few deep dives in the inner workings of the pyyaml
 # and in particular, allowing us to do proper lazy evaluation of our VarEntities
 
+
 class FakeStringIO(object):
     def __init__(self, t=''):
         self.t = t
@@ -42,6 +43,7 @@ class BlockRepresenter(yaml.representer.BaseRepresenter):
                     style = '|'
         return yaml.representer.BaseRepresenter.represent_scalar(self, tag, value, style=style)
 
+
 class VarEntitySerializer(yaml.serializer.Serializer):
     def serialize_node(self, node, parent, index):
         if node not in self.serialized_nodes and isinstance(node, yaml.nodes.ScalarNode) and \
@@ -52,6 +54,7 @@ class VarEntitySerializer(yaml.serializer.Serializer):
             self.ascend_resolver()
             return
         return yaml.serializer.Serializer.serialize_node(self, node, parent, index)
+
 
 class VarEntityEmitter(yaml.emitter.Emitter):
     def process_tag(self):
@@ -76,14 +79,18 @@ class VarEntityEmitter(yaml.emitter.Emitter):
             return
         return yaml.emitter.Emitter.process_scalar(self)
 
+
 class BaseDumper(VarEntityEmitter, VarEntitySerializer, BlockRepresenter, yaml.dumper.BaseDumper):
     pass
+
 
 class SafeDumper(VarEntityEmitter, VarEntitySerializer, BlockRepresenter, yaml.dumper.SafeDumper):
     pass
 
+
 class BlockDumper(VarEntityEmitter, VarEntitySerializer, BlockRepresenter, yaml.dumper.Dumper):
     pass
+
 
 class StringDumper(BlockRepresenter, yaml.dumper.SafeDumper):
     def expect_document_root(self):
@@ -99,10 +106,13 @@ class StringDumper(BlockRepresenter, yaml.dumper.SafeDumper):
             raise EmitterError("expected DocumentEndEvent, but got %s"
                     % self.event)
 
+
 def ordered_dict_presenter(dumper, data):
     return dumper.represent_dict(data.items())
+
 yaml.add_representer(OrderedDict, ordered_dict_presenter, Dumper=BlockDumper)
 yaml.add_representer(OrderedDict, ordered_dict_presenter, Dumper=SafeDumper)
+
 
 def var_entity_presenter(dumper, data):
     def representer(val):
@@ -116,8 +126,10 @@ def var_entity_presenter(dumper, data):
         return dumper.represent_unicode(data)
     else:
         return dumper.represent_str(data)
+
 yaml.add_multi_representer(VarEntity, var_entity_presenter, Dumper=BlockDumper)
 yaml.add_multi_representer(VarEntity, var_entity_presenter, Dumper=SafeDumper)
+
 
 def yaml_safe_dump(*args, **kwargs):
     stream = FakeStringIO()
@@ -128,6 +140,7 @@ def yaml_safe_dump(*args, **kwargs):
     yaml.dump(*args, **kwargs)
     return stream.get_value()
 
+
 def yaml_dump(*args, **kwargs):
     stream = FakeStringIO()
     kwargs['stream'] = stream
@@ -136,6 +149,7 @@ def yaml_dump(*args, **kwargs):
     kwargs['Dumper'] = BlockDumper
     yaml.dump(*args, **kwargs)
     return stream.get_value()
+
 
 def yaml_load(string):
     if sys.version_info[0] == 2:

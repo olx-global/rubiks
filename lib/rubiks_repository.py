@@ -14,6 +14,7 @@ except ImportError:
 
 import repository
 
+
 class ClusterInfo(object):
     def __init__(self, name, cp, section):
         self.name = name
@@ -48,6 +49,7 @@ class ClusterInfo(object):
         if not hasattr(self, 'read_only') or not self.read_only:
             return object.__setattr__(self, k, v)
         raise AttributeError("ClusterInfo object is read-only")
+
 
 class RubiksRepository(repository.Repository):
     def __init__(self, *args, **kwargs):

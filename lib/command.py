@@ -239,6 +239,7 @@ class Command_help(Command):
         tw = textwrap.TextWrapper(width=width, initial_indent=init, subsequent_indent=(' ' * hwidth))
         return '\n'.join(tw.wrap(cmd_text + cmd_o.help())) + '\n'
 
+
 class Command_options(Command):
     """Show help for the rubiks global_options"""
 

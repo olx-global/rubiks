@@ -10,6 +10,7 @@ from kube_obj import KubeObj
 import load_python
 import sys
 
+
 class Command_describe(Command):
     """describe the kubernetes object types to be included in kube files"""
 
@@ -88,6 +89,7 @@ class Command_describe(Command):
 
         if not found:
             return 1
+
 
 class Command_list_objs(Command):
     """list the kubernetes/openshift object types we support"""

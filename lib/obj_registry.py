@@ -11,8 +11,10 @@ from kube_objs.namespace import Namespace
 
 _REG = None
 
+
 class RegistryStackError(Exception):
     pass
+
 
 class ObjectRegistry(object):
     def __init__(self):
@@ -99,10 +101,12 @@ class ObjectRegistry(object):
 
 _REG = ObjectRegistry()
 
+
 def add_obj(self):
     return _REG.add(self)
 
 KubeBaseObj.add_obj = add_obj
+
 
 def get_ns(self, name):
     ret = _REG.get_id(Namespace, name)
@@ -114,10 +118,12 @@ def get_ns(self, name):
 
 KubeBaseObj.get_ns = get_ns
 
+
 def get_parents(self):
     return _REG.get_parents(self)
 
 KubeBaseObj.get_parents = get_parents
+
 
 def init(is_openshift):
     get_ns(None, 'default')
@@ -126,6 +132,7 @@ def init(is_openshift):
         get_ns(None, 'openshift')
         get_ns(None, 'openshift-infra')
     KubeBaseObj._is_openshift = is_openshift
+
 
 def obj_registry():
     return _REG

@@ -29,7 +29,8 @@ class EnvironmentPreProcessMixin(object):
                 if isinstance(e, dict) and len(e) == 2 and 'name' in e and 'value' in e:
                     if isinstance(e['value'], SingleSecret):
                         ret.append(ContainerEnvSecretSpec(name=e['name'],
-                                                          secret_name=e['value'].name, key=e['value'].key))
+                                                          secret_name=e['value'].name,
+                                                          key=e['value'].key))
                     else:
                         ret.append(ContainerEnvSpec(name=e['name'], value=e['value']))
                 else:

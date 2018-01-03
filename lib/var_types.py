@@ -11,6 +11,7 @@ import sys
 if sys.version_info[0] == 3:
     basestring = str
 
+
 class _VarContext(object):
     def __init__(self):
         self.values = {}
@@ -18,6 +19,7 @@ class _VarContext(object):
         self.show_confidential = True
 
 VarContext = _VarContext()
+
 
 class VarEntity(object):
     def __init__(self, *args, **kwargs):
