@@ -9,6 +9,13 @@ from kube_obj import KubeObj
 from kube_types import *
 
 
+class SingleConfig(object):
+    def __init__(self, name, namespace, key):
+        self.name = name
+        self.namespace = namespace
+        self.key = key
+
+
 class ConfigMap(KubeObj):
     apiVersion = 'v1'
     kind = 'ConfigMap'
@@ -26,6 +33,11 @@ class ConfigMap(KubeObj):
     _parse = {
         'files': ('data',),
         }
+
+    def get_key(self, key):
+        if not key in self._data['files']:
+            raise UserError(KeyError("Key {} doesn't exist in configmap".format(key)))
+        return SingleConfig(name=self._data['name'], namespace=self.namespace, key=key)
 
     def render(self):
         if len(self._data['files']) == 0:

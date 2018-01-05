@@ -39,6 +39,7 @@ with namespace('kube-system'):
 
 with namespace('myapp'):
     secret = Secret('myapp', secrets={'magic_token': Confidential('foo')})
+    config = ConfigMap('myapp', files={'magic_token': 'myapp_environment'})
     labels = {'app': 'myapp', 'deployenv': 'production'}
     ret = Deployment('myapp', replicas=5, minReadySeconds=10, revisionHistoryLimit=5,
                      selector=MatchLabelsSelector(matchLabels=labels),
@@ -58,7 +59,13 @@ with namespace('myapp'):
                                                      command=['java', '-server', '-jar', '-Dmyapp.threads=100', '/myapp.jar'],
                                                      ))
     ctr = ret.pod_template.containers[-1]
-    ctr.env = {'MANAGEMENT_PORT': '8081', 'MYAPP_MAGIC_SECRET': secret.get_key('magic_token')}
+    ctr.env = {
+        'MANAGEMENT_PORT': '8081',
+        'MYAPP_MAGIC_SECRET': secret.get_key('magic_token'),
+        'MYAPP_MAGIC_NONSECRET': config.get_key('magic_token'),
+        'MYAPP_NAMESPACE': ContainerEnvPodFieldSpec(fieldPath='metadata.namespace'),
+        'MYAPP_CPU_LIMIT': ContainerEnvContainerResourceSpec(resource='limits.cpu'),
+        }
 
     ret = AWSLoadBalancerService(name='myapp', selector=labels)
     ret.ports.append(ServicePort(name='https', protocol='TCP', port=443, targetPort=8080))
