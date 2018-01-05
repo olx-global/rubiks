@@ -24,3 +24,4 @@ See also `rubiks help` for more information on how to use it
 
 - [Kube files and the DSL](docs/Kube%20files%20and%20the%20DSL.md)
 - [Rubiks repositories and the .rubiks file](docs/Rubiks%20repositories%20and%20the%20.rubiks%20file.md)
+- [Examples](https://github.com/olx-global/rubiks-examples)
