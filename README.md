@@ -2,7 +2,7 @@
 
 Rubiks exists to help programmatically generate and maintain the yaml files associated with kubernetes configuration.
 
-The rubiks compiler provides a [DSL](Kube%20files%20and%20the%20DSL.md) (basically python) to help make this happen.
+The rubiks compiler provides a [DSL](docs/Kube%20files%20and%20the%20DSL.md) (basically python) to help make this happen.
 
 ## Rubiks Licensing
 
