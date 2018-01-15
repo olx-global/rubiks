@@ -56,9 +56,9 @@ class PythonFileCollection(loader.Loader):
         except KeyError:
             return None
 
-    def __init__(self, repository):
+    def __init__(self, repository, content_check=None):
         loader.Loader.__init__(self, repository)
-        self.outputs = OutputCollection(self, repository)
+        self.outputs = OutputCollection(self, repository, content_check=content_check)
 
     def get_file_context(self, path):
         if path.extension is None:
@@ -151,7 +151,7 @@ class PythonFileCollection(loader.Loader):
         self.outputs.add_output(kobj)
 
     def gen_output(self):
-        self.outputs.write_output()
+        return self.outputs.write_output()
 
 
 class PythonBaseFile(object):

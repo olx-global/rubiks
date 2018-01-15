@@ -12,7 +12,7 @@ import weakref
 import kube_objs
 import var_types
 from kube_obj import KubeObj
-from kube_yaml import yaml_safe_dump
+from kube_yaml import yaml_safe_dump, yaml_load
 from util import mkdir_p
 from user_error import UserError
 
@@ -22,10 +22,11 @@ class RubiksOutputError(Exception):
 
 
 class OutputCollection(object):
-    def __init__(self, loader, repository):
+    def __init__(self, loader, repository, content_check=None):
         self.repository = repository
         self.clusterless = {}
         self.clustered = {}
+        self.content_check = content_check
         self.cluster_mode = (len(self.repository.get_clusters()) != 0)
         self.loader = weakref.ref(loader)
         self.set_confidentiality_mode()
@@ -69,7 +70,7 @@ class OutputCollection(object):
             if kobj._in_cluster is not None:
                 cluster = kobj._in_cluster.name
 
-        op = OutputMember(self, kobj, cluster)
+        op = OutputMember(self, kobj, cluster, content_check=self.content_check)
         if not op.is_namespace:
             self.add_output(op.kobj.namespace)
 
@@ -96,11 +97,11 @@ class OutputCollection(object):
         self.base = os.path.join(self.repository.basepath, self.repository.outputs)
         self.debug(2, "writing output to {}".format(self.base))
         if self.cluster_mode:
-            self._write_output_clustered()
-        else:
-            self._write_output_clusterless()
+            return self._write_output_clustered()
+        return self._write_output_clusterless()
 
     def _write_output_clustered(self):
+        changed = []
         with self.confidential(self.base) as confidential:
             for c in self.repository.get_clusters():
                 path = os.path.join(self.base, c)
@@ -116,7 +117,9 @@ class OutputCollection(object):
 
                     if any(map(lambda x: x.has_data() and not x.is_namespace, outputs)):
                         for op in outputs:
-                            op.write_file(path)
+                            p = op.write_file(path)
+                            if p is not None:
+                                changed.append(p)
                             confidential.add_file(op)
 
                 if not c in self.clustered:
@@ -128,17 +131,24 @@ class OutputCollection(object):
 
                     if any(map(lambda x: x.has_data() and not x.is_namespace, self.clustered[c][ns].values())):
                         for op in self.clustered[c][ns].values():
-                            op.write_file(path)
+                            p = op.write_file(path)
+                            if p is not None:
+                                changed.append(p)
                             confidential.add_file(op)
+        return changed
 
     def _write_output_clusterless(self):
+        changed = []
         mkdir_p(self.base)
         with self.confidential(self.base) as confidential:
             for ns in self.clusterless:
                 if any(map(lambda x: x.has_data() and not x.is_namespace, self.clusterless[ns].values())):
                     for op in self.clusterless[ns].values():
-                        op.write_file(self.base)
+                        p = op.write_file(path)
+                        if p is not None:
+                            changed.append(p)
                         confidential.add_file(op)
+        return changed
 
     def check_for_dupes(self, op):
         ret = self._check_for_dupes(op)
@@ -198,9 +208,10 @@ class OutputCollection(object):
 
 
 class OutputMember(object):
-    def __init__(self, coll, kobj, cluster):
+    def __init__(self, coll, kobj, cluster, content_check=None):
         self.kobj = kobj
         self.cluster = cluster
+        self.content_check = content_check
         self.coll = weakref.ref(coll)
 
         self.is_namespace = isinstance(kobj, kube_objs.Namespace)
@@ -263,10 +274,27 @@ class OutputMember(object):
         if self.is_confidential:
             self.debug(3, "  file {}/{} is confidential".format(self.filedir, self.filename))
 
+        changed = False
+        if self.content_check is not None and self.content_check in ('contents', 'yaml', 'exists'):
+            try:
+                with open(os.path.join(path, self.filename), 'rb') as f:
+                    if self.content_check == 'contents':
+                        if content != f.read().decode('utf8'):
+                            changed = True
+                    elif self.content_check == 'yaml':
+                        if yaml_load(content) != yaml_load(f.read().decode('utf8')):
+                            changed = True
+            except:
+                changed = True
+
         with open(os.path.join(path, '.' + self.identifier + '.tmp'), 'w') as f:
             f.write(content)
         os.rename(os.path.join(path, '.' + self.identifier + '.tmp'),
                   os.path.join(path, self.filename))
+
+        if changed:
+            return os.path.join(path, self.filename)
+        return None
 
 
 class ConfidentialOutput(object):

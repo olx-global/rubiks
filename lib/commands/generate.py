@@ -17,15 +17,33 @@ class Command_generate(Command, LoaderBase, CommandRepositoryBase):
     user_error = True
 
     def populate_args(self, parser):
-        pass
+        group = parser.add_mutually_exclusive_group()
+        group.add_argument('-c', '--created', action='store_true',
+                           help='Print out filepaths that were created by this generation run')
+        group.add_argument('-C', '--contents', action='store_true',
+                           help='Print out filepaths whose bytewise contents changed in this run')
+        group.add_argument('-Y', '--yaml', action='store_true',
+                           help='Print out filepaths whose parsed YAML contents changed in this run')
 
     def run(self, args):
+        content_check = None
+
+        if args.created:
+            content_check = 'exists'
+        elif args.contents:
+            content_check = 'contents'
+        elif args.yaml:
+            content_check = 'yaml'
+
         self.loader_setup()
 
         r = self.get_repository()
 
-        collection = load_python.PythonFileCollection(r)
+        collection = load_python.PythonFileCollection(r, content_check)
 
         collection.load_all_python(r.sources)
 
-        collection.gen_output()
+        files = collection.gen_output()
+
+        for f in sorted(files):
+            print(f)
