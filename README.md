@@ -10,7 +10,9 @@ Rubiks is available under the Apache 2.0 Licence (see the file [LICENCE](LICENCE
 
 ## Installing Rubiks
 
-Installing Rubiks is easy, you can just check out this repository to your working space and then symlink the rubiks binary into somewhere (eg `~/bin`) that is on your executable search path (`$PATH`). Then you should be able to do rubiks help to get a list of commands.
+Installing Rubiks is easy, you can just clone this repository to your working space and then symlink the rubiks binary into somewhere (eg `~/bin`) that is on your executable search path (`$PATH`). Then you should be able to do `rubiks help` or `rubiks -h` to get a list of commands.
+
+To use the [examples](https://github.com/olx-global/rubiks-examples), you can clone that repository, and then when you have cd-ed into it, you can run `rubiks generate` (or `/path/to/rubiks/rubiks generate` if it isn't on your path as above) to generate an `out` directory at the top-level of the repository with all the YAML files inside it.
 
 ## Using Rubiks
 
