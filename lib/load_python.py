@@ -229,6 +229,8 @@ class PythonBaseFile(object):
             def internal_call(*args, **kwargs):
                 try:
                     return fn(*args, **kwargs)
+                except PythonStopCompile:
+                    raise
                 except Exception as e:
                     raise UserError(e)
             return internal_call
@@ -502,10 +504,18 @@ class PythonImportPerClusterFile(PythonBaseFile):
             self.fallback = True
             save_cluster = KubeBaseObj._default_cluster
             res_save_cluster = Resolver.current_cluster
+
+            def valid_clusters(*clusters):
+                print("WARN: valid_clusters() called in clusterless mode", file=sys.stderr)
+
             try:
                 KubeBaseObj._default_cluster = None
                 Resolver.current_cluster = None
-                self.module = self.do_compile({'current_cluster': None, 'current_cluster_name': None})
+                self.module = self.do_compile({
+                    'current_cluster': None,
+                    'current_cluster_name': None,
+                    'valid_clusters': valid_clusters,
+                    })
             finally:
                 KubeBaseObj._default_cluster = save_cluster
                 Resolver.current_cluster = res_save_cluster
@@ -517,11 +527,29 @@ class PythonImportPerClusterFile(PythonBaseFile):
                 this_cluster = self.collection().repository.get_cluster_info(c)
                 save_cluster = KubeBaseObj._default_cluster
                 res_save_cluster = Resolver.current_cluster
+
+                def get_valid_clusters(c):
+                    def valid_clusters(*clusters):
+                        if len(clusters) == 0:
+                            raise UserError(ValueError("Must specify at least one cluster"))
+                        all_clusters = tuple(self.collection().repository.get_clusters())
+                        for cc in clusters:
+                            if cc not in all_clusters:
+                                print("WARN: valid_clusters() called with unknown cluster name: " + cc,
+                                      file=sys.stderr)
+                        if c not in clusters:
+                            raise PythonStopCompile("stop")
+                    return valid_clusters
+
                 try:
                     KubeBaseObj._default_cluster = this_cluster
                     Resolver.current_cluster = this_cluster
                     self.default_import_args = {'cluster': c}
-                    self.module[c] = self.do_compile({'current_cluster': this_cluster, 'current_cluster_name': c})
+                    self.module[c] = self.do_compile({
+                        'current_cluster': this_cluster,
+                        'current_cluster_name': c,
+                        'valid_clusters': get_valid_clusters(c),
+                        })
                 finally:
                     KubeBaseObj._default_cluster = save_cluster
                     Resolver.current_cluster = res_save_cluster

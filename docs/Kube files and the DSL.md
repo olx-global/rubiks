@@ -18,6 +18,10 @@ Functions and variables that are available in the rubiks files
   stop execution of the current file (in an "exit" or "return" kind of a way), in such
   a way that everything is clean.
 
+- `valid_clusters(<cluster>[, <cluster>...])` _(only in ckube and ekube files)_<br>
+  stops execution of this file in a similar way to `stop()` if the current cluster isn't
+  one of the ones mentioned. Cleaner to use than `stop()`
+
 - `read_file(<relative path>[, cant_read_ok=False])`<br>
   function to read a file and make it available in a variable (eg. for a ConfigMap)
   - `cant_read_ok`: return None instead of raising an exception if the file is unreadable
