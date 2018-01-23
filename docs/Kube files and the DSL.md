@@ -50,6 +50,14 @@ Functions and variables that are available in the rubiks files
   - `no_import=<bool>`: If true (only valid with no symbols and without `import_as`), don't perform the import of the symbols, allowing use of the module as a return value. _Defaults False_.
   - `<extra_options>`: other options for the importer routines
 
+- `get_multi_python(<pattern>[, <basename>][, <extra_options>])`<br>
+  finds python-valid source files in the whole repository (or underneath the basename if it's
+  specified) matching the shell-glob-like pattern. Returns a `dict` of the pathname
+  relative to the repository root (key) and the module (value).
+  - `pattern`: a shell glob, eg. `*.ckube`
+  - `basename`: pathname relative to this file restricting the search
+  - `<extra_options>`: other options for the importer routines (though we don't import symbols from this function)
+
 - `yaml_dump(<obj>)`<br>
   generate a string dump of an object in yaml format
 

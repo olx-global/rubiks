@@ -33,7 +33,7 @@ class Command_syntax(Command):
     def rubiks(self):
         return ('import_python', 'output', 'no_output', 'yaml_dump', 'yaml_load', 'json_dump', 'json_load',
                 'stop', 'get_lookup', 'load_object', 'run_command', 'fileinfo', 'cluster_context', 'namespace',
-                'current_cluster_name', 'current_cluster', 'valid_clusters')
+                'current_cluster_name', 'current_cluster', 'valid_clusters', 'get_multi_python')
 
     def mkdir(self, args, *paths):
         if args.noop or args.verbose:

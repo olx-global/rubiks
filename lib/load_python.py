@@ -5,6 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import fnmatch
 import json
 import os
 import sys
@@ -59,6 +60,7 @@ class PythonFileCollection(loader.Loader):
     def __init__(self, repository, content_check=None):
         loader.Loader.__init__(self, repository)
         self.outputs = OutputCollection(self, repository, content_check=content_check)
+        self.all_sources = None
 
     def get_file_context(self, path):
         if path.extension is None:
@@ -73,6 +75,28 @@ class PythonFileCollection(loader.Loader):
 
         return self.get_or_add_file(path, python_loader, (self, path))
 
+    def find_all_source_files(self):
+        if self.all_sources is None:
+            basepath = self.repository.sources
+            paths = []
+            def _rec_add(path):
+                d_ents = os.listdir(os.path.join(self.repository.basepath, basepath, path, '.'))
+                for d_ent in sorted(d_ents):
+                    if d_ent.startswith('.'):
+                        continue
+                    if os.path.exists(os.path.join(self.repository.basepath, basepath, path, d_ent, '.')):
+                        if path == '.':
+                            _rec_add(d_ent)
+                        else:
+                            _rec_add(os.path.join(path, d_ent))
+                        continue
+                    paths.append(loader.Path(os.path.join(self.repository.basepath,
+                                                          basepath, path, d_ent), self.repository))
+            _rec_add('.')
+            self.all_sources = paths
+
+        return self.all_sources
+
     def load_all_python(self, basepath):
         extensions = self.__class__.get_python_file_type(None)
         good_ext = set()
@@ -80,29 +104,14 @@ class PythonFileCollection(loader.Loader):
             if extensions[ext].default_export_objects:
                 good_ext.add(ext)
 
-        paths = []
-
-        def _rec_add(path):
-            d_ents = os.listdir(os.path.join(self.repository.basepath, basepath, path, '.'))
-            for d_ent in sorted(d_ents):
-                if d_ent.startswith('.'):
-                    continue
-                if os.path.exists(os.path.join(self.repository.basepath, basepath, path, d_ent, '.')):
-                    if path == '.':
-                        _rec_add(d_ent)
-                    else:
-                        _rec_add(os.path.join(path, d_ent))
-                    continue
-                pth = loader.Path(os.path.join(self.repository.basepath, basepath, path, d_ent), self.repository)
-                if pth.extension is None:
-                    continue
-                if pth.extension not in good_ext:
-                    continue
-                paths.append(pth)
-
-        _rec_add('.')
-
+        paths = self.find_all_source_files()
         for p in paths:
+            if os.path.relpath(p.repo_rel_path, basepath).startswith('..'):
+                continue
+            if p.extension is None:
+                continue
+            if p.extension not in good_ext:
+                continue
             self.load_python(p)
 
     def load_python(self, path):
@@ -115,6 +124,40 @@ class PythonFileCollection(loader.Loader):
         self.current_file = pth
         self.get_file_context(pth)
         self.current_file = None
+
+    def get_multi_python(self, py_context, pattern='*', basepath=None, **kwargs):
+        extensions = self.__class__.get_python_file_type(None)
+        ret = {}
+
+        if pattern is None:
+            raise UserError(ValueError("get_multi_python(): pattern must be specified"))
+
+        basep = None
+        if basepath is not None:
+            try:
+                basep = py_context.path.rel_path(basepath)
+            except AssertionError as e:
+                raise UserError(LoaderImportError('basepath specifiers in get_multi_python must be relative: {}'.
+                                                  format(basepath)))
+
+        for p in self.find_all_source_files():
+            if basep is not None and os.path.relpath(p.repo_rel_path, basep.repo_rel_path).startswith('..'):
+                continue
+            if p.extension is None:
+                continue
+            if p.extension not in extensions:
+                continue
+            if not fnmatch.fnmatchcase(p.filename, pattern) and \
+                    not fnmatch.fnmatchcase(p.basename, pattern):
+                continue
+
+            try:
+                ret[p.repo_rel_path] = self.get_file_context(p).get_module(**kwargs)
+            except loader.LoaderBaseException as e:
+                raise UserError(e)
+
+            self.add_dep(py_context.path, p)
+        return ret
 
     def import_python(self, py_context, name, exports, **kwargs):
         path = self.import_check(py_context, name)
@@ -145,6 +188,8 @@ class PythonFileCollection(loader.Loader):
             raise UserError(e)
 
         self.add_dep(py_context.path, path)
+        if new_context is not None:
+            return new_context.get_module(**kwargs)
         return new_context
 
     def add_output(self, kobj):
@@ -243,11 +288,14 @@ class PythonBaseFile(object):
             nargs.update(kwargs)
             nargs['__reserved_names'] = self.reserved_names
 
-            ret = self.collection().import_python(self, name, exports, **nargs)
+            return self.collection().import_python(self, name, exports, **nargs)
 
-            if ret is not None:
-                return ret.get_module(**nargs)
-            return ret
+        def get_multi_python(pattern=None, basepath=None, **kwargs):
+            nargs = {}
+            nargs.update(self.default_import_args)
+            nargs.update(kwargs)
+
+            return self.collection().get_multi_python(self, pattern=pattern, basepath=basepath, **nargs)
 
         def output(val):
             self.output_was_called = True
@@ -376,6 +424,7 @@ class PythonBaseFile(object):
             'repobase': self.collection().repository.basepath,
 
             'import_python': import_python,
+            'get_multi_python': get_multi_python,
             'namespace': namespace,
 
             'stop': stop,
