@@ -586,7 +586,7 @@ class PodTemplateSpec(KubeSubObj):
         'hostNetwork': Nullable(Boolean),
         'imagePullSecrets': Nullable(List(PodImagePullSecret)),
         'nodeSelector': Nullable(Map(String, String)),
-        'restartPolicy': Nullable(Enum('Always')),
+        'restartPolicy': Nullable(Enum('Always', 'OnFailure', 'Never')),
         'securityContext': Nullable(SecurityContext),
         'serviceAccountName': Nullable(Identifier),
         'terminationGracePeriodSeconds': Nullable(Positive(Integer)),

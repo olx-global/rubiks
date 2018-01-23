@@ -96,6 +96,12 @@ with namespace('openshifter'):
     ret.new_tls()
     ret.port.targetPort = '8080-tcp'
 
+    j = Job('test')
+    j.pod_template.new_container('test', imagePullPolicy='Always', kind='DockerImage')
+    j.pod_template.containers[0].image = 'alpine'
+    j.pod_template.containers[0].command = ['sleep', '10']
+
+
 with namespace('alerts'):
     alertmgr = """
 apiVersion: v1
