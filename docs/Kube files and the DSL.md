@@ -113,6 +113,9 @@ Functions and variables that are available in the rubiks files
       DeploymentConfig(...)
   ```
 
+- `current_namespace()`<br>
+  return the value of the current namespace that objects will be created in
+
 - `clusters` _(only if clusters are configured)_<br>
   contains a tuple with the names of clusters
 

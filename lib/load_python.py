@@ -414,6 +414,9 @@ class PythonBaseFile(object):
 
             return namespace_wrapper(ns)
 
+        def current_namespace():
+            return KubeBaseObj._default_ns
+
         clusters = tuple(self.collection().repository.get_clusters())
 
         def cluster_info(c):
@@ -426,6 +429,7 @@ class PythonBaseFile(object):
             'import_python': import_python,
             'get_multi_python': get_multi_python,
             'namespace': namespace,
+            'current_namespace': current_namespace,
 
             'stop': stop,
 
