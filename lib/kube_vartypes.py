@@ -53,6 +53,9 @@ class Confidential(var_types.VarEntity):
     def init(self, value):
         self.value = value
 
+    def eq(self, other):
+        return self.value == other.value
+
     def to_string(self):
         if var_types.VarContext.current_context is not None:
             var_types.VarContext.current_context['confidential'] = True

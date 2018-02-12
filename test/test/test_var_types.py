@@ -18,6 +18,9 @@ class Confidential(var_types.VarEntity):
     def init(self, value):
         self.value = value
 
+    def eq(self, other):
+        return self.value == other.value
+
     def to_string(self):
         if SHOW:
             return self.value
@@ -96,6 +99,31 @@ class TestBasicVarTypes(unittest.TestCase):
         self.assertEqual(str(r), "a:\n  x: |-\n    foo\n    bar\n    baz\n\n  y: plain\nb: bar\nc: xyzzy\n")
         SHOW = False
         self.assertEqual(str(r), "a:\n  x: '*** HIDDEN ***'\n  y: plain\nb: '*** HIDDEN ***'\nc: xyzzy\n")
+
+    def test_equality(self):
+        x = Confidential("abc")
+        y = Confidential("def")
+        z = Confidential("abc")
+        self.assertEqual(x, z)
+        self.assertNotEqual(x, y)
+        self.assertNotEqual(z, y)
+
+        v0 = 'abc' + x + 'def'
+        v1 = 'abc' + z + 'def'
+        v2 = 'def' + x + 'abc'
+
+        self.assertEqual(v0, v1)
+        self.assertNotEqual(v0, v2)
+        self.assertNotEqual(v1, v2)
+
+        v0 = 'abc' + x + 'def' + x + 'ghi'
+        v1 = 'abc' + x + 'def' + z + 'ghi'
+        v2 = 'abc' + z + 'def' + x + 'ghi'
+        v3 = 'abc' + z + 'def' + z + 'ghi'
+
+        self.assertEqual(v0, v1)
+        self.assertEqual(v1, v2)
+        self.assertEqual(v2, v3)
 
 if __name__ == '__main__':
     unittest.main()

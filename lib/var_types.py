@@ -82,6 +82,22 @@ class VarEntity(object):
 
         return NotImplemented
 
+    def __eq__(self, other):
+        if self.__class__ is not other.__class__:
+            return False
+        if self.text != other.text:
+            return False
+        if self.var != other.var:
+            return False
+        if hasattr(self, 'eq'):
+            return self.eq(other)
+        if self.__class__ is VarEntity:
+            return True
+        return False
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def _internal_render(self):
         ret = ''
         for i in range(0, len(self.text)):
