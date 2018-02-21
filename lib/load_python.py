@@ -61,19 +61,25 @@ class PythonFileCollection(loader.Loader):
         loader.Loader.__init__(self, repository)
         self.outputs = OutputCollection(self, repository, content_check=content_check)
         self.all_sources = None
+        self.current_context = []
 
     def get_file_context(self, path):
-        if path.extension is None:
-            raise UserError(loader.LoaderFileNameError(
-                "Filenames must have an extension in {}".format(path.full_path)))
+        try:
+            self.current_context.append(path)
+            if path.extension is None:
+                raise UserError(loader.LoaderFileNameError(
+                    "Filenames must have an extension in {}".format(path.full_path)))
 
-        python_loader = self.__class__.get_python_file_type(path.extension)
+            python_loader = self.__class__.get_python_file_type(path.extension)
 
-        if python_loader is None:
-            raise UserError(loader.LoaderFileNameError(
-                "No valid handler for extension {} in {}".format(path.extension, path.full_path)))
+            if python_loader is None:
+                raise UserError(loader.LoaderFileNameError(
+                    "No valid handler for extension {} in {}".format(path.extension, path.full_path)))
 
-        return self.get_or_add_file(path, python_loader, (self, path))
+            return self.get_or_add_file(path, python_loader, (self, path))
+        finally:
+            assert self.current_context[-1] is path
+            self.current_context.pop()
 
     def find_all_source_files(self):
         if self.all_sources is None:
@@ -156,7 +162,7 @@ class PythonFileCollection(loader.Loader):
             except loader.LoaderBaseException as e:
                 raise UserError(e)
 
-            self.add_dep(py_context.path, p)
+            self.add_dep(self.current_context[-1], p)
         return ret
 
     def import_python(self, py_context, name, exports, **kwargs):
@@ -187,7 +193,7 @@ class PythonFileCollection(loader.Loader):
         except loader.LoaderBaseException as e:
             raise UserError(e)
 
-        self.add_dep(py_context.path, path)
+        self.add_dep(self.current_context[-1], path)
         if new_context is not None:
             return new_context.get_module(**kwargs)
         return new_context
