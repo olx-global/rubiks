@@ -76,8 +76,11 @@ Functions and variables that are available in the rubiks files
 
 - `get_lookup(<relative_path>[, non_exist_ok=<bool>][, git_crypt_ok=<bool>][, is_confidential=<bool>][, default=...][, assert_type=<type>][, fail_ok=<bool>])`<br>
   get a "lookup" object on a YAML or JSON file, to be able to search for eg, passwords or replicas in a single place.
-  This has a single method, `.get_key(<paths...>)` which allows a dot-separated list of paths in fallback order, with
-  the global default at the end.
+  This has two methods:
+  - `.get_key(<paths...>)` which allows a dot-separated list of paths in fallback order, with the global default at the end
+  - `.get_branches(path)` which gives a keys() like tuple of the possible next components of the specified path
+
+  Options to create the lookup object are:
   - `non_exist_ok` (default: `True`) allows the file not to exist and to return a default unknown or global default type
   - `git_crypt_ok` (default: `True`) allows the file to be a still-encrypted git-crypt and return a default unknown or global default type
   - `is_confidential` (default: `False`) will make sure the return from `.get_key(...)` is a `Confidential` type and treated as a secret

@@ -81,6 +81,39 @@ class Resolver(object):
                 else:
                     raise ValueError("Unparseable file " + pth.repo_rel_path)
 
+    def get_branches(self, path):
+        try:
+            path = "" + path
+        except:
+            raise UserError(TypeError("Wrong type for path: expected str, got {}".format(
+                path.__class__.__name__)))
+
+        if len(path) == 0:
+            raise UserError(ValueError("path should not be empty string - use '.' for root"))
+
+        if not self.has_data:
+            return ()
+
+        if path == '.':
+            return tuple(sorted(self.data.keys()))
+
+        path_c = path.split('.')
+        ctx = self.data
+
+        i = 0
+        while i < len(path_c):
+            if not isinstance(ctx, dict) or not path_c[i] in ctx:
+                raise UserError(KeyNotExist("branch {} ({}) doesn't exist in {}".format(
+                    '.'.join(path_c[0:i]), path, self.path.repo_rel_path)))
+
+            ctx = ctx[path_c[i]]
+            i += 1
+
+        if isinstance(ctx, dict):
+            return tuple(sorted(ctx.keys()))
+
+        return ()
+
     def get_key(self, *args):
         for p in range(0, len(args)):
             last = False
