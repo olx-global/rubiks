@@ -10,6 +10,21 @@ from kube_types import *
 from .service_account import ServiceAccount
 
 
+class UserIdentifier(String):
+    validation_text = "User identifiers should be <253 characters and alphanum, or '.,@-_'"
+
+    def do_check(self, value, path):
+        if not String.do_check(self, value, path):
+            return False
+        id_chars = 'abcdefghijklmnopqrstuvwxyz0123456789.,@-_'
+        if len(value) == 0 or len(value) > 253:
+            return False
+        for v in value.lower():
+            if v not in id_chars:
+                return False
+        return True
+
+
 class PolicyRule(KubeSubObj):
     _defaults = {
         'resourceNames': [],
@@ -78,6 +93,7 @@ class User(KubeObj):
         }
 
     _types = {
+        'name': UserIdentifier,
         'fullName': Nullable(String),
         'identities': NonEmpty(List(NonEmpty(String))),
         }
@@ -104,7 +120,7 @@ class Group(KubeObj):
         }
 
     _types = {
-        'users': NonEmpty(List(Identifier)),
+        'users': NonEmpty(List(UserIdentifier)),
         }
 
     def render(self):
@@ -120,14 +136,24 @@ class RoleSubject(KubeSubObj):
         }
 
     _types = {
-        'name': Nullable(SystemIdentifier),
-        'kind': Nullable(CaseIdentifier),
+        'name': String,
+        'kind': CaseIdentifier,
         'ns': Nullable(Identifier),
         }
 
     _parse = {
         'ns': ('namespace',),
         }
+
+    def do_validate(self):
+        if self._data['kind'] == 'User':
+            UserIdentifier().check(self._data['name'], 'name')
+        elif self._data['kind'] in ('SystemUser', 'SystemGroup'):
+            SystemIdentifier().check(self._data['name'], 'name')
+        else:
+            Identifier().check(self._data['name'], 'name')
+
+        return True
 
     def render(self):
         ret = self.renderer(order=('name', 'kind', 'ns'))
