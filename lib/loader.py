@@ -154,14 +154,26 @@ class Loader(object):
 
             elif len(exports) == 1 and exports[0] == '*':
                 # from <f_ctx> import *
+                all = None
+                imports = set()
                 for sym in f_ctx.get_symnames(**kwargs):
                     if sym == '__builtins__':
                         # this is magic, we don't try and be clever
                         continue
+                    if sym == '__all__':
+                        # we simulate the __all__ in imported files
+                        c_all = f_ctx.get_symbol(sym, **kwargs)
+                        if isinstance(c_all, (list, tuple, set)):
+                            all = c_all
+                        continue
                     if sym in reserved_names:
                         # ignore imports of symbols that are inserted by us
                         continue
-                    t_module.__dict__[sym] = f_ctx.get_symbol(sym, **kwargs)
+                    imports.add(sym)
+
+                for sym in imports:
+                    if all is None or sym in all:
+                        t_module.__dict__[sym] = f_ctx.get_symbol(sym, **kwargs)
 
             else:
                 # from <f_ctx> import <foo>, <bar>
@@ -169,11 +181,11 @@ class Loader(object):
                     assert sym != '*'
                     if isinstance(sym, tuple) and len(sym) == 2:
                         # <foo> as <f>
-                        if sym[0] == '__builtins__' or sym[0] in reserved_names:
+                        if sym[0] == '__builtins__' or sym[0] == '__all__' or sym[0] in reserved_names:
                             continue
                         t_module.__dict__[sym[1]] = f_ctx.get_symbol(sym[0], **kwargs)
                     else:
-                        if sym == '__builtins__' or sym in reserved_names:
+                        if sym == '__builtins__' or sym == '__all__' or sym in reserved_names:
                             continue
                         t_module.__dict__[sym] = f_ctx.get_symbol(sym, **kwargs)
 
