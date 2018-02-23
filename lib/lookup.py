@@ -97,7 +97,7 @@ class Resolver(object):
         if path == '.':
             return tuple(sorted(self.data.keys()))
 
-        path_c = path.split('.')
+        path_c = self._resolve_path(path).split('.')
         ctx = self.data
 
         i = 0
@@ -128,10 +128,7 @@ class Resolver(object):
                 try:
                     ret = self._get_key(path)
                 except InvalidKey as e:
-                    if self.default is not None:
-                        ret = self.default
-                    else:
-                        raise UserError(e)
+                    raise UserError(e)
 
                 if self.assert_type is not None and not isinstance(ret, self.assert_type):
                     raise UserError(TypeError("return value of {} is not {}".format(path, self.assert_type)))
@@ -139,6 +136,11 @@ class Resolver(object):
                 return ret
             except Exception as e:
                 if last:
+                    if self.default is not None:
+                        if self.assert_type is not None and not isinstance(self.default, self.assert_type):
+                            raise UserError(TypeError(
+                                "return value of {} is not {}".format(path, self.assert_type)))
+                        return self.default
                     if isinstance(e, UserError):
                         raise
                     raise UserError(e)

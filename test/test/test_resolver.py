@@ -133,6 +133,7 @@ class TestResolver(unittest.TestCase):
         self.assertEqual(res.get_key('woot'), 30)
         self.assertEqual(res.get_key('foo.xyzzy'), 1)
         self.assertEqual(res.get_key('foo.xyzzy.bar'), 30)
+        self.assertEqual(res.get_key('foo.xyzzy.bar', 'foo.xyzzy'), 1)
 
         res = Resolver(self.get_path('nonexistent.yaml'), default=30, non_exist_ok=True)
         self.assertEqual(res.get_key('woot'), 30)
@@ -151,6 +152,18 @@ class TestResolver(unittest.TestCase):
         res = Resolver(self.get_path('normal.yaml'), assert_type=int, default='foo')
         self.assertEqual(res.get_key('foo.xyzzy'), 1)
         self.assertRaises(TypeError, res.get_key, 'foo.xyzz')
+
+    def test_branches(self):
+        res = Resolver(self.get_path('normal.yaml'))
+        self.assertEqual(res.get_branches('foo'), ('bar', 'xyzzy'))
+        self.assertEqual(res.get_branches('xyzzy'), ())
+
+        Resolver.current_cluster = FakeClusterInfo('staging')
+        self.assertEqual(res.get_branches('qux.{cluster}'), ('bar',))
+        Resolver.current_cluster = FakeClusterInfo('virginia')
+        self.assertEqual(res.get_branches('qux.{cluster}'), ('bar',))
+        Resolver.current_cluster = FakeClusterInfo('ireland')
+        self.assertRaises(lookup.KeyNotExist, res.get_branches, 'qux.{cluster}')
 
 if __name__ == '__main__':
     unittest.main()
