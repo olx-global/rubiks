@@ -115,6 +115,7 @@ class Resolver(object):
         return ()
 
     def get_key(self, *args):
+        e_txt = None
         for p in range(0, len(args)):
             last = False
             if p == len(args) - 1:
@@ -123,10 +124,10 @@ class Resolver(object):
 
             try:
                 if self.is_confidential:
-                    return Confidential(str(self._get_key(path)))
+                    return Confidential(str(self._get_key(path, e_txt)))
 
                 try:
-                    ret = self._get_key(path)
+                    ret = self._get_key(path, e_txt)
                 except InvalidKey as e:
                     raise UserError(e)
 
@@ -135,6 +136,8 @@ class Resolver(object):
 
                 return ret
             except Exception as e:
+                e_txt = str(e)
+
                 if last:
                     if self.default is not None:
                         if self.assert_type is not None and not isinstance(self.default, self.assert_type):
@@ -150,7 +153,7 @@ class Resolver(object):
             return path
         return path.format(cluster=self.__class__.current_cluster.name)
 
-    def _get_key(self, path):
+    def _get_key(self, path, e_txt):
         if not self.has_data:
             if self.default is not None:
                 return self.default
@@ -159,18 +162,22 @@ class Resolver(object):
         path_c = path.split('.')
         ctx = self.data
 
+        if e_txt is None:
+            e_txt = ''
+        else:
+            e_txt += ', '
         i = 0
         while i < len(path_c):
             if not isinstance(ctx, dict) or not path_c[i] in ctx:
-                raise KeyNotExist("branch {} ({}) doesn't exist in {}".format(
-                    '.'.join(path_c[0:i]), path, self.path.repo_rel_path))
+                raise KeyNotExist(e_txt + "branch {} ({}) doesn't exist in {}".format(
+                    '.'.join(path_c[0:i + 1]), path, self.path.repo_rel_path))
 
             ctx = ctx[path_c[i]]
             i += 1
 
         if isinstance(ctx, dict):
             raise KeyIsBranch(
-                "branch {} ({}) is not specific enough in {} (refers to branch not key)".format(
+                e_txt + "branch {} ({}) is not specific enough in {} (refers to branch not key)".format(
                     '.'.join(path_c), path, self.path.repo_rel_path))
 
         return ctx

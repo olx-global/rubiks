@@ -212,13 +212,10 @@ class Loader(object):
     def get_or_add_file(self, f_path, comp_context_obj, args):
         if f_path.full_path in self.files:
             return self.files[f_path.full_path]
-        return self.add_file(f_path, comp_context_obj(*args))
-
-    def add_file(self, f_path, comp_context):
         self.add_dep(f_path)
         assert f_path.full_path not in self.files
-        self.files[f_path.full_path] = comp_context
-        return comp_context
+        self.files[f_path.full_path] = comp_context_obj(*args)
+        return self.files[f_path.full_path]
 
     def check_deps(self):
         checked = set()
@@ -226,6 +223,8 @@ class Loader(object):
         def _rec_check_deps(k, prev):
             if prev is None:
                 prev = set()
+            if k not in self.deps:
+                return
             for nk in self.deps[k]:
                 if nk in prev:
                     raise LoaderLoopException('Loop detected: {} imports {}'.format(nk, k))

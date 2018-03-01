@@ -157,12 +157,12 @@ class PythonFileCollection(loader.Loader):
                     not fnmatch.fnmatchcase(p.basename, pattern):
                 continue
 
+            self.add_dep(self.current_context[-1], p)
+
             try:
                 ret[p.repo_rel_path] = self.get_file_context(p).get_module(**kwargs)
             except loader.LoaderBaseException as e:
                 raise UserError(e)
-
-            self.add_dep(self.current_context[-1], p)
         return ret
 
     def import_python(self, py_context, name, exports, **kwargs):
@@ -173,6 +173,8 @@ class PythonFileCollection(loader.Loader):
         basename = path.basename
         if 'import_as' in kwargs and kwargs['import_as'] is not None:
             basename = kwargs['import_as']
+
+        self.add_dep(self.current_context[-1], path)
 
         new_context = None
         try:
@@ -193,7 +195,6 @@ class PythonFileCollection(loader.Loader):
         except loader.LoaderBaseException as e:
             raise UserError(e)
 
-        self.add_dep(self.current_context[-1], path)
         if new_context is not None:
             return new_context.get_module(**kwargs)
         return new_context
@@ -255,6 +256,8 @@ class PythonBaseFile(object):
         self.output_was_called = False
         self.default_import_args = {}
 
+        self.import_exception = None
+
         if self.compile_in_init:
             save_cluster = KubeBaseObj._default_cluster
             try:
@@ -262,6 +265,25 @@ class PythonBaseFile(object):
                 self.module = self.do_compile()
             finally:
                 KubeBaseObj._default_cluster = save_cluster
+
+    def warn_import_exception(self, cluster=None):
+        if self.import_exception is not None:
+            exc = self.import_exception[1]
+            if exc.__class__ is UserError:
+                exc = exc.exc
+
+            if cluster is None:
+                print("Warning: swallowed import exception in {} to import {}: {}: {}".format(
+                    self.path.src_rel_path, self.import_exception[0],
+                    exc.__class__.__name__,
+                    str(exc)), file=sys.stderr,
+                    )
+            else:
+                print("Warning: swallowed import exception in {} ({}) to import {}: {}: {}".format(
+                    self.path.src_rel_path, cluster, self.import_exception[0],
+                    exc.__class__.__name__,
+                    str(exc)), file=sys.stderr,
+                    )
 
     def debug(self, *args):
         return self.collection().debug(*args)
@@ -294,7 +316,12 @@ class PythonBaseFile(object):
             nargs.update(kwargs)
             nargs['__reserved_names'] = self.reserved_names
 
-            return self.collection().import_python(self, name, exports, **nargs)
+            try:
+                return self.collection().import_python(self, name, exports, **nargs)
+            except Exception as e:
+                if self.import_exception is None:
+                    self.import_exception = (name, e)
+                raise
 
         def get_multi_python(pattern=None, basepath=None, **kwargs):
             nargs = {}
@@ -509,6 +536,11 @@ class PythonBaseFile(object):
                     if not user_originated(o_exc[2]):
                         raise
 
+                if extra_context is None or 'current_cluster_name' not in extra_context:
+                    self.warn_import_exception()
+                else:
+                    self.warn_import_exception(extra_context['current_cluster_name'])
+
                 if o_exc is not None:
                     raise UserError(o_exc[1], tb=o_exc[2])
 
@@ -578,7 +610,6 @@ class PythonImportPerClusterFile(PythonBaseFile):
             finally:
                 KubeBaseObj._default_cluster = save_cluster
                 Resolver.current_cluster = res_save_cluster
-
         else:
             self.fallback = False
             self.module = {}
