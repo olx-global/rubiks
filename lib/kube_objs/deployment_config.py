@@ -117,6 +117,7 @@ class DCLifecycleNewPod(KubeSubObj, EnvironmentPreProcessMixin):
         'command': [],
         'env': None,
         'volumes': None,
+        'volumeMounts': None,
         }
 
     _types = {
@@ -124,13 +125,16 @@ class DCLifecycleNewPod(KubeSubObj, EnvironmentPreProcessMixin):
         'command': NonEmpty(List(String)),
         'env': Nullable(List(ContainerEnvBaseSpec)),
         'volumes': Nullable(List(Identifier)),
+        'volumeMounts': Nullable(List(ContainerVolumeMountSpec))
         }
 
     def xf_env(self, v):
         return self.fix_environment(v)
 
     def render(self):
-        return self.renderer(order=('container', 'command', 'env', 'volumes'))
+        return self.renderer(
+            order=('container', 'command', 'env', 'volumes', 'volumeMounts')
+        )
 
 
 class DCLifecycleHook(KubeSubObj):
