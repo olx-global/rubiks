@@ -9,13 +9,36 @@ from kube_obj import KubeSubObj, order_dict
 from kube_types import *
 
 
+class EnvString(String):
+    validation_text = "Environment names are [A-Za-z_][A-Za-z0-9_]*"
+
+    def do_check(self, value, path):
+        if not String.do_check(self, value, path):
+            return False
+
+        first_char = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'
+        digits = '0123456789'
+
+        if len(value) == 0 or len(value) > 253:
+            return False
+
+        if value[0] not in first_char:
+            return False
+
+        for v in value[1:]:
+            if v not in (first_char + digits):
+                return False
+
+        return True
+
+
 class ContainerEnvBaseSpec(KubeSubObj):
     _defaults = {
         'name': '',
         }
 
     _types = {
-        'name': NonEmpty(String),
+        'name': EnvString,
         }
 
     def find_subparser(self, doc):

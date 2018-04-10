@@ -22,8 +22,9 @@ class KubeTypeValidationError(Exception):
         path = self.path
         if path is None:
             path = 'self'
-        return "KubeType Validation failed for {}: expected {}, got {}: {}".format(path, self.vstr,
+        return "KubeType Validation failed for {}: expected {}, got {} ({}): {}".format(path, self.vstr,
                                                                                    self.obj.__class__.__name__,
+                                                                                   repr(self.obj),
                                                                                    self.msg)
 
 
