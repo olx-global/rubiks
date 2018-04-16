@@ -31,55 +31,72 @@ class Resolver(object):
 
     def __init__(self, pth, non_exist_ok=True, git_crypt_ok=True, is_confidential=False, default=None,
                  assert_type=None, fail_ok=False):
-        if not isinstance(pth, Path):
-            raise TypeError("path is not of type Path, but actually {}".format(pth.__class__.__name__))
+
+        for p in pth:
+            if not isinstance(p, Path):
+                raise TypeError("path is not of type Path, but actually {}".format(pth.__class__.__name__))
 
         self.is_confidential = is_confidential
         self.default = default
         self.assert_type = assert_type
         self.has_data = False
+        self.has_gitcrypt = False
         self.path = pth
-        data = None
+        self.data = dict()
+        self.non_exist_ok = non_exist_ok
+        self.git_crypt_ok = git_crypt_ok
+        self.fail_ok = fail_ok
+        self._load_files()
 
-        try:
-            with open(pth.full_path, 'rb') as f:
-                data = f.read()
-        except:
-            if not non_exist_ok:
+    def _load_files(self):
+        data = None
+        for path in self.path:
+            try:
+                with open(path.full_path, 'rb') as f:
+                    data = f.read()
+            except:
+                if not self.non_exist_ok:
+                    raise
+
+            if data is None:
+                return
+
+            if b'GITCRYPT' in data[0:10]:
+                if self.has_data:
+                    raise ValueError("Mixed crypt and notcrypt data in lookup files")
+
+                if not self.git_crypt_ok:
+                    raise ValueError("file {} was git-crypt-ed and cannot be read".format(path.repo_rel_path))
+                self.has_gitcrypt = True
+                continue
+
+            if self.has_gitcrypt:
+                raise ValueError("Mixed crypt and notcrypt data in lookup files")
+
+            try:
+                data = data.decode('utf8')
+            except:
+                if self.fail_ok:
+                    print("Can't parse {} as unicode, let alone JSON or YAML".format(path.hrepo_rel_path),
+                          file=sys.stderr)
+                    return
                 raise
 
-        if data is None:
-            return
-
-        if b'GITCRYPT' in data[0:10]:
-            if not git_crypt_ok:
-                raise ValueError("file {} was git-crypt-ed and cannot be read".format(pth.repo_rel_path))
-            return
-
-        try:
-            data = data.decode('utf8')
-        except:
-            if fail_ok:
-                print("Can't parse {} as unicode, let alone JSON or YAML".format(pth.repo_rel_path),
-                      file=sys.stderr)
-                return
-            raise
-
-        try:
-            if data.lstrip().startswith('{') and data.rstrip().endswith('}'):
-                self.data = json.loads(data)
-                self.has_data = True
-            else:
-                raise ValueError("not json")
-        except ValueError:
             try:
-                self.data = yaml_load(data)
-                self.has_data = True
-            except:
-                if fail_ok:
-                    print("Can't parse {} as JSON or YAML".format(pth.repo_rel_path), file=sys.stderr)
+                if data.lstrip().startswith('{') and data.rstrip().endswith('}'):
+                    self.data.update(json.loads(data))
+                    self.has_data = True
                 else:
-                    raise ValueError("Unparseable file " + pth.repo_rel_path)
+                    raise ValueError("not json")
+            except ValueError:
+                try:
+                    self.data.update(yaml_load(data))
+                    self.has_data = True
+                except:
+                    if fail_ok:
+                        print("Can't parse {} as JSON or YAML".format(path.repo_rel_path), file=sys.stderr)
+                    else:
+                        raise ValueError("Unparseable file " + path.repo_rel_path)
 
     def get_branches(self, path):
         try:
@@ -104,7 +121,7 @@ class Resolver(object):
         while i < len(path_c):
             if not isinstance(ctx, dict) or not path_c[i] in ctx:
                 raise UserError(KeyNotExist("branch {} ({}) doesn't exist in {}".format(
-                    '.'.join(path_c[0:i]), path, self.path.repo_rel_path)))
+                    '.'.join(path_c[0:i]), path, self._get_repo_rel_path())))
 
             ctx = ctx[path_c[i]]
             i += 1
@@ -151,6 +168,9 @@ class Resolver(object):
             return path
         return path.format(cluster=self.__class__.current_cluster.name)
 
+    def _get_repo_rel_path(self):
+        return ', '.join(map(lambda x: x.repo_rel_path, self.path))
+
     def _get_key(self, path, e_txt):
         if not self.has_data:
             if self.default is not None:
@@ -168,7 +188,7 @@ class Resolver(object):
         while i < len(path_c):
             if not isinstance(ctx, dict) or not path_c[i] in ctx:
                 raise KeyNotExist(e_txt + "branch {} ({}) doesn't exist in {}".format(
-                    '.'.join(path_c[0:i + 1]), path, self.path.repo_rel_path))
+                    '.'.join(path_c[0:i + 1]), path, self._get_repo_rel_path()))
 
             ctx = ctx[path_c[i]]
             i += 1
@@ -176,6 +196,6 @@ class Resolver(object):
         if isinstance(ctx, dict):
             raise KeyIsBranch(
                 e_txt + "branch {} ({}) is not specific enough in {} (refers to branch not key)".format(
-                    '.'.join(path_c), path, self.path.repo_rel_path))
+                    '.'.join(path_c), path, self._get_repo_rel_path()))
 
         return ctx

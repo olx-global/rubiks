@@ -47,7 +47,7 @@ class TestResolver(unittest.TestCase):
         raise AssertionError("not true")
 
     def test_basic_yaml(self):
-        res = Resolver(self.get_path('normal.yaml'))
+        res = Resolver([self.get_path('normal.yaml')])
 
         self.assertEqual(res.get_key('foo.bar.baz'), 'qux')
         self.assertEqual(res.get_key('foo.xyzzy'), 1)
@@ -58,7 +58,7 @@ class TestResolver(unittest.TestCase):
         self.assertEqual(res.get_key('qux.{cluster}.bar'), 'xyzzy')
 
     def test_basic_yaml_fail(self):
-        res = Resolver(self.get_path('normal.yaml'))
+        res = Resolver([self.get_path('normal.yaml')])
 
         self.assertRaises(lookup.KeyIsBranch, res.get_key, 'foo')
         self.assertRaises(lookup.KeyNotExist, res.get_key, 'bar')
@@ -70,7 +70,7 @@ class TestResolver(unittest.TestCase):
         self.assertRaises(lookup.KeyNotExist, res.get_key, 'qux.{cluster}.bar')
 
     def test_basic_json(self):
-        res = Resolver(self.get_path('normal.json'))
+        res = Resolver([self.get_path('normal.json')])
 
         self.assertEqual(res.get_key('foo.bar.baz'), 'qux')
         self.assertEqual(res.get_key('foo.xyzzy'), 1)
@@ -81,7 +81,7 @@ class TestResolver(unittest.TestCase):
         self.assertEqual(res.get_key('qux.{cluster}.bar'), 'xyzzy')
 
     def test_basic_json_fail(self):
-        res = Resolver(self.get_path('normal.json'))
+        res = Resolver([self.get_path('normal.json')])
 
         self.assertRaises(lookup.KeyIsBranch, res.get_key, 'foo')
         self.assertRaises(lookup.KeyNotExist, res.get_key, 'bar')
@@ -93,25 +93,25 @@ class TestResolver(unittest.TestCase):
         self.assertRaises(lookup.KeyNotExist, res.get_key, 'qux.{cluster}.bar')
 
     def test_basic_git_crypted(self):
-        res = Resolver(self.get_path('crypted.yaml'))
+        res = Resolver([self.get_path('crypted.yaml')])
         self.assertEqual(res.get_key('foo.bar.baz'), '<unknown "foo.bar.baz">')
 
-        self.assertRaises(ValueError, Resolver, self.get_path('crypted.yaml'), git_crypt_ok=False)
+        self.assertRaises(ValueError, Resolver, [self.get_path('crypted.yaml')], git_crypt_ok=False)
 
     def test_basic_file_not_exists(self):
-        res = Resolver(self.get_path('nonexistent.yaml'))
+        res = Resolver([self.get_path('nonexistent.yaml')])
         self.assertEqual(res.get_key('foo.bar.baz'), '<unknown "foo.bar.baz">')
 
-        self.assertRaises(Exception, Resolver, self.get_path('nonexistent.yaml'), non_exist_ok=False)
+        self.assertRaises(Exception, Resolver, [self.get_path('nonexistent.yaml')], non_exist_ok=False)
 
     def test_basic_fallback(self):
-        res = Resolver(self.get_path('normal.yaml'))
+        res = Resolver([self.get_path('normal.yaml')])
 
         self.assertEqual(res.get_key('foo.bar.baz', 'foo.bar', 'foo'), 'qux')
         self.assertEqual(res.get_key('foo', 'foo.bar', 'foo.bar.baz'), 'qux')
 
     def test_basic_confidential(self):
-        res = Resolver(self.get_path('normal.yaml'), is_confidential=True)
+        res = Resolver([self.get_path('normal.yaml')], is_confidential=True)
         ret = res.get_key('foo.bar.baz')
         self.assertTrue(isinstance(ret, Confidential))
         self.assertEqual(ret.value, 'qux')
@@ -119,23 +119,23 @@ class TestResolver(unittest.TestCase):
         self.assertTrue(isinstance(ret, Confidential))
         self.assertEqual(ret.value, '1')
 
-        res = Resolver(self.get_path('crypted.yaml'), is_confidential=True)
+        res = Resolver([self.get_path('crypted.yaml')], is_confidential=True)
         ret = res.get_key('foo.bar.baz')
         self.assertTrue(isinstance(ret, Confidential))
         self.assertEqual(ret.value, '<unknown "foo.bar.baz">')
 
     def test_defaults(self):
-        res = Resolver(self.get_path('normal.yaml'), default='w00t')
+        res = Resolver([self.get_path('normal.yaml')], default='w00t')
         self.assertEqual(res.get_key('foo.bar.baz', 'foo.bar', 'foo'), 'qux')
         self.assertEqual(res.get_key('foo.bar.baz.qux', 'foo.bar', 'foo'), 'w00t')
 
-        res = Resolver(self.get_path('normal.yaml'), default=30)
+        res = Resolver([self.get_path('normal.yaml')], default=30)
         self.assertEqual(res.get_key('woot'), 30)
         self.assertEqual(res.get_key('foo.xyzzy'), 1)
         self.assertEqual(res.get_key('foo.xyzzy.bar'), 30)
         self.assertEqual(res.get_key('foo.xyzzy.bar', 'foo.xyzzy'), 1)
 
-        res = Resolver(self.get_path('nonexistent.yaml'), default=30, non_exist_ok=True)
+        res = Resolver([self.get_path('nonexistent.yaml')], default=30, non_exist_ok=True)
         self.assertEqual(res.get_key('woot'), 30)
 
     def test_typeassert(self):
@@ -143,18 +143,18 @@ class TestResolver(unittest.TestCase):
             string_base=(basestring,)
         except NameError:
             string_base=(str,)
-        res = Resolver(self.get_path('normal.yaml'), assert_type=string_base)
+        res = Resolver([self.get_path('normal.yaml')], assert_type=string_base)
         self.assertRaises(lookup.KeyIsBranch, res.get_key, 'foo')
         self.assertRaises(lookup.KeyNotExist, res.get_key, 'bar')
         self.assertRaises(TypeError, res.get_key, 'foo.xyzzy')
         self.assertEqual(res.get_key('foo.bar.baz'), 'qux')
 
-        res = Resolver(self.get_path('normal.yaml'), assert_type=int, default='foo')
+        res = Resolver([self.get_path('normal.yaml')], assert_type=int, default='foo')
         self.assertEqual(res.get_key('foo.xyzzy'), 1)
         self.assertRaises(TypeError, res.get_key, 'foo.xyzz')
 
     def test_branches(self):
-        res = Resolver(self.get_path('normal.yaml'))
+        res = Resolver([self.get_path('normal.yaml')])
         self.assertEqual(res.get_branches('foo'), ('bar', 'xyzzy'))
         self.assertEqual(res.get_branches('xyzzy'), ())
 
@@ -164,6 +164,16 @@ class TestResolver(unittest.TestCase):
         self.assertEqual(res.get_branches('qux.{cluster}'), ('bar',))
         Resolver.current_cluster = FakeClusterInfo('ireland')
         self.assertRaises(lookup.KeyNotExist, res.get_branches, 'qux.{cluster}')
+
+    def test_multiple_files(self):
+        res = Resolver([self.get_path('normal.yaml'), self.get_path('normal.json')])
+        self.assertEqual(res.get_branches('foo'), ('bar', 'xyzzy'))
+        self.assertEqual(res.get_branches('xyzzy'), ())
+
+    def test_mixed_data(self):
+        self.assertRaises(ValueError, Resolver, [self.get_path('normal.yaml'), self.get_path('crypted.yaml')])
+        self.assertRaises(ValueError, Resolver, [self.get_path('crypted.yaml'), self.get_path('normal.yaml')])
+
 
 if __name__ == '__main__':
     unittest.main()

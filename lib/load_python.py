@@ -365,9 +365,12 @@ class PythonBaseFile(object):
             return json.loads(string)
 
         @_user_error
-        def get_lookup(path, **kwargs):
-            path = self.path.rel_path(path)
-            return Resolver(path, **kwargs)
+        def get_lookup(*path, **kwargs):
+            tmp = list()
+            for p in path:
+              tmp.append(self.path.rel_path(p))
+
+            return Resolver(tmp, **kwargs)
 
         @_user_error
         def read_file(path, cant_read_ok=False):
