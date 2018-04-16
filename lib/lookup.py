@@ -11,7 +11,7 @@ import sys
 from kube_vartypes import Confidential
 from kube_yaml import yaml_load
 from loader import Path
-from user_error import UserError
+from user_error import UserError, handle_user_error
 
 
 class InvalidKey(Exception):
@@ -129,7 +129,7 @@ class Resolver(object):
                 try:
                     ret = self._get_key(path, e_txt)
                 except InvalidKey as e:
-                    raise UserError(e)
+                    handle_user_error(e)
 
                 if self.assert_type is not None and not isinstance(ret, self.assert_type):
                     raise UserError(TypeError("return value of {} is not {}".format(path, self.assert_type)))
@@ -144,9 +144,7 @@ class Resolver(object):
                             raise UserError(TypeError(
                                 "return value of {} is not {}".format(path, self.assert_type)))
                         return self.default
-                    if isinstance(e, UserError):
-                        raise
-                    raise UserError(e)
+                    handle_user_error(e)
 
     def _resolve_path(self, path):
         if self.__class__.current_cluster is None:

@@ -5,8 +5,9 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import traceback
+import os
 import sys
+import traceback
 
 __all__ = ['paths', 'UserError', 'user_errors', 'user_originated']
 
@@ -85,7 +86,11 @@ class UserInternalError(UserError):
         return "while trying to process user code found {} exception internally: {}". \
             format(self.exc.__class__.__name__, str(self.exc))
 
+
 def frame_in_paths(t, caller_fn=None):
+    if len(os.getenv('RUBIKS_DEBUG', '')) > 0:
+        return True
+
     pth = t.tb_frame.f_code.co_filename
 
     if caller_fn is not None and pth == caller_fn:
@@ -97,10 +102,12 @@ def frame_in_paths(t, caller_fn=None):
 
     return False
 
+
 def user_originated(tb):
     while tb.tb_next is not None:
         tb = tb.tb_next
     return not frame_in_paths(tb)
+
 
 def _filter_traceback(tb, caller_fn=None, fake_start_frame=None):
     finished = False
@@ -199,3 +206,10 @@ class user_errors(object):
             print(out, file=sys.stderr)
 
         sys.exit(1)
+
+
+def handle_user_error(e):
+    if len(os.getenv('RUBIKS_DEBUG', '')) > 0 or isinstance(e, UserError):
+        raise
+    else:
+        raise UserError(e)

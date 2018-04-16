@@ -17,7 +17,7 @@ import kube_yaml
 from load_python_core import do_compile_internal
 from kube_obj import KubeObj, KubeBaseObj
 from obj_registry import obj_registry
-from user_error import UserError, user_originated
+from user_error import UserError, user_originated, handle_user_error
 from output import RubiksOutputError, OutputCollection
 from lookup import Resolver
 from util import mkdir_p
@@ -162,7 +162,7 @@ class PythonFileCollection(loader.Loader):
             try:
                 ret[p.repo_rel_path] = self.get_file_context(p).get_module(**kwargs)
             except loader.LoaderBaseException as e:
-                raise UserError(e)
+                handle_user_error(e)
         return ret
 
     def import_python(self, py_context, name, exports, **kwargs):
@@ -193,7 +193,7 @@ class PythonFileCollection(loader.Loader):
                 raise UserError(ValueError("import_python: Can't set symbols to import to when using no_import"))
 
         except loader.LoaderBaseException as e:
-            raise UserError(e)
+            handle_user_error(e)
 
         if new_context is not None:
             return new_context.get_module(**kwargs)
@@ -305,7 +305,7 @@ class PythonBaseFile(object):
                 except PythonStopCompile:
                     raise
                 except Exception as e:
-                    raise UserError(e)
+                    handle_user_error(e)
             return internal_call
 
         def import_python(name, *exports, **kwargs):
