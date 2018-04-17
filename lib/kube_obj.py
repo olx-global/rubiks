@@ -177,9 +177,10 @@ class KubeBaseObj(object):
                 ret.update(copy.deepcopy(getattr(kls, clsmap)))
         _recurse(cls)
         if hasattr(cls, 'identifier'):
-            if clsmap == '_types':
+            if clsmap == '_types' and cls.identifier not in ret:
                 ret[cls.identifier] = Identifier
             elif clsmap == '_defaults':
+                # we always set the identifier to be none as a default
                 ret[cls.identifier] = None
         return ret
 
@@ -1000,7 +1001,7 @@ class KubeObj(KubeBaseObj):
 
     def check_namespace(self):
         if isinstance(self.namespace, KubeObj) and hasattr(self.namespace, 'kind') and \
-                self.namespace.kind == 'Namespace':
+                self.namespace.kind in ('Namespace', 'Project'):
             return True
         return False
 

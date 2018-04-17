@@ -20,7 +20,7 @@ class Command_order(Command):
 
     def populate_args(self, parser):
         parser.add_argument('-N', '--exclude-namespace', action='store_true',
-                            help="Don't include namespace kinds (equivalent of -e namespace)")
+                            help="Don't include namespace kinds (equivalent of -e namespace -e project)")
         parser.add_argument('-e', '--exclude', action='append',
                             help="Don't include named types (may be specified more than once)")
         parser.add_argument('-f', '--follow-symlinks', action='store_true',
@@ -52,6 +52,7 @@ class Command_order(Command):
         excludes = set()
         if args.exclude_namespace:
             excludes.add('namespace')
+            excludes.add('project')
 
         if args.exclude is not None:
             for e in args.exclude:

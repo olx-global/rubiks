@@ -106,6 +106,7 @@ class OutputCollection(object):
         with self.confidential(self.base) as confidential:
             for c in self.repository.get_clusters():
                 path = os.path.join(self.base, c)
+                is_openshift = self.repository.is_openshift or self.repository.get_cluster_info(c).is_openshift
                 mkdir_p(path)
 
                 ns_done = set()
@@ -115,6 +116,8 @@ class OutputCollection(object):
                     outputs.extend(self.clusterless[ns].values())
                     if c in self.clustered and ns in self.clustered[c]:
                         outputs.extend(self.clustered[c][ns].values())
+
+                    changed.extend(self._write_namespace(outputs, path, confidential, is_openshift))
 
                     if any(map(lambda x: x.has_data() and not x.is_namespace, outputs)):
                         for op in outputs:
@@ -130,12 +133,8 @@ class OutputCollection(object):
                     if ns in ns_done:
                         continue
 
-                    if any(map(lambda x: x.has_data() and not x.is_namespace, self.clustered[c][ns].values())):
-                        for op in self.clustered[c][ns].values():
-                            p = op.write_file(path)
-                            if p is not None:
-                                changed.append(p)
-                            confidential.add_file(op)
+                    changed.extend(self._write_namespace(self.clustered[c][ns].values(), path,
+                                                         confidential, is_openshift))
         return changed
 
     def _write_output_clusterless(self):
@@ -143,13 +142,89 @@ class OutputCollection(object):
         mkdir_p(self.base)
         with self.confidential(self.base) as confidential:
             for ns in self.clusterless:
-                if any(map(lambda x: x.has_data() and not x.is_namespace, self.clusterless[ns].values())):
-                    for op in self.clusterless[ns].values():
-                        p = op.write_file(path)
+                changed.extend(self._write_namespace(self.clusterless[ns].values(), self.base,
+                                                     confidential, self.repository.is_openshift))
+        return changed
+
+    def _write_namespace(self, outputs, path, confidential, is_openshift=False):
+        changed = []
+
+        if any(map(lambda x: x.has_data() and not x.is_namespace, outputs)):
+            for op in outputs:
+                if op.is_namespace:
+                    continue
+                p = op.write_file(path)
+                if p is not None:
+                    changed.append(p)
+                confidential.add_file(op)
+
+            for op in outputs:
+                if not op.is_namespace:
+                    continue
+                if not is_openshift:
+                    p = op.write_file(path)
+                    if p is not None:
+                        changed.append(p)
+                    confidential.add_file(op)
+                else:
+                    new_op = self._get_openshift_objs(op)
+                    for op_ in new_op:
+                        p = op_.write_file(path)
                         if p is not None:
                             changed.append(p)
-                        confidential.add_file(op)
+                        confidential.add_file(op_)
+                break
+
         return changed
+
+    def _get_openshift_objs(self, ns_op):
+        new_op = []
+
+        Project = kube_objs.Project
+        RoleBinding = kube_objs.RoleBinding
+        RoleSubject = kube_objs.RoleSubject
+
+        # project
+        op = OutputMember(self, Project.clone_from_ns(ns_op.kobj), None,
+                          content_check=self.content_check)
+        op.render()
+        new_op.append(op)
+
+        # image-pullers rolebinding
+        op = OutputMember(
+            self, RoleBinding('system:image-pullers', roleRef='system:image-puller',
+                              subjects=[RoleSubject(kind='SystemGroup',
+                                                    name='system:serviceaccounts:' + ns_op.kobj.name)]),
+            None, content_check=self.content_check,
+            )
+        op.kobj.set_namespace(ns_op.kobj.name)
+        op.namespace_name = ns_op.kobj.name
+        op.render()
+        new_op.append(op)
+
+        # image-builders rolebinding
+        op = OutputMember(
+            self, RoleBinding('system:image-builders', roleRef='system:image-builder',
+                              subjects=[RoleSubject(kind='ServiceAccount', name='builder')]),
+            None, content_check=self.content_check,
+            )
+        op.kobj.set_namespace(ns_op.kobj.name)
+        op.namespace_name = ns_op.kobj.name
+        op.render()
+        new_op.append(op)
+
+        # deployer rolebinding
+        op = OutputMember(
+            self, RoleBinding('system:deployers', roleRef='system:deployer',
+                              subjects=[RoleSubject(kind='ServiceAccount', name='deployer')]),
+            None, content_check=self.content_check,
+            )
+        op.kobj.set_namespace(ns_op.kobj.name)
+        op.namespace_name = ns_op.kobj.name
+        op.render()
+        new_op.append(op)
+
+        return new_op
 
     def check_for_dupes(self, op):
         ret = self._check_for_dupes(op)
@@ -256,6 +331,9 @@ class OutputMember(object):
     def yaml(self):
         self.cached_yaml = yaml_safe_dump(self.cached_obj, default_flow_style=False)
 
+    def filename_conversion(self, filename):
+        return filename.replace(':', '_')
+
     def write_file(self, path):
         if not hasattr(self, 'cached_obj') or self.kobj._always_regenerate:
             self.render()
@@ -271,7 +349,7 @@ class OutputMember(object):
             mkdir_p(path)
 
         self.filedir = path
-        self.filename = self.identifier + '.yaml'
+        self.filename = self.filename_conversion(self.identifier) + '.yaml'
 
         self.debug(3, "writing file {}/{}".format(self.filedir, self.filename))
 

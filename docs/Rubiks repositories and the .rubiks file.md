@@ -32,6 +32,11 @@ A .rubiks file is a .ini file with several sections and options
   - `git-crypt-single` add output filename to a single `.gitattributes` file at
     the top-level of the output directory, with the git-crypt filters
 
+### `[global]` section
+
+- `is_openshift` _(default `false`)_ see per-cluster version but overrides per-cluster
+  setting if true and used in clusterless mode
+
 ### `[cluster_<clustername>]` sections
 
 If none of these are present, rubiks will operate in clusterless mode, but the
@@ -39,3 +44,5 @@ sections define what clusters are available, even if empty
 
 - `prod_state` _(default `production`)_ state of this cluster - allows `.is_prod`
   attribute to be read on the ClusterInfo object
+- `is_openshift` _(default `false`)_ if this cluster is openshift then generate
+  project and standard RoleBindings instead of Namespace

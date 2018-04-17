@@ -244,3 +244,7 @@ class RoleBinding(RoleBindingBase):
     apiVersion = 'v1'
     kind = 'RoleBinding'
     kubectltype = 'rolebinding'
+
+    _types = {
+        'name': SystemIdentifier,
+    }

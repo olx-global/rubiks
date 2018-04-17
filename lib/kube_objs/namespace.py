@@ -5,6 +5,8 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+import copy
+
 from kube_obj import KubeObj
 
 
@@ -35,3 +37,19 @@ class Namespace(KubeObj):
         if self._is_openshift and self.name in ('openshift', 'openshift-infra'):
             return None
         return {'metadata': {'name': self.name, 'labels': {'name': self.name}}}
+
+
+class Project(Namespace):
+    apiVersion = 'v1'
+    kind = 'Project'
+    kubectltype = 'project'
+    _output_order = 0
+
+    @classmethod
+    def clone_from_ns(kls, origin):
+        assert isinstance(origin, Namespace)
+        ret = kls(origin.identifier)
+        ret._data = copy.deepcopy(origin._data)
+        ret.labels = copy.deepcopy(origin.labels)
+        ret.annotations = copy.deepcopy(origin.annotations)
+        return ret

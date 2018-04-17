@@ -120,6 +120,10 @@ Functions and variables that are available in the rubiks files
 - `current_namespace()`<br>
   return the value of the current namespace that objects will be created in
 
+- `get_namespace([<namespace>])`<br>
+  return the object corresponding to the specified namespace (default: current namespace), useful
+  for setting annotations
+
 - `clusters` _(only if clusters are configured)_<br>
   contains a tuple with the names of clusters
 

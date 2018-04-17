@@ -19,6 +19,7 @@ class ClusterInfo(object):
     def __init__(self, name, cp, section):
         self.name = name
         self.prod_state = self._value(cp, section, 'prod_state', 'string', default='production')
+        self.is_openshift = self._value(cp, section, 'is_openshift', 'bool', default=False)
         self.is_prod = self.prod_state == 'production'
         self.read_only = True
 
@@ -72,6 +73,16 @@ class RubiksRepository(repository.Repository):
                                                m_cp.get('layout', 'pythonpath', raw=True).split(',')))
                 if m_cp.has_option('layout', 'confidentiality_mode'):
                     self.confidentiality_mode = m_cp.get('layout', 'confidentiality_mode', raw=True)
+
+            if m_cp.has_section('global'):
+                if m_cp.has_option('global', 'is_openshift'):
+                    v = m_cp.get('global', 'is_openshift', raw=True)
+                    c = v[0].lower()
+                    if v == '0' or v == '1':
+                        self.is_openshift = (v == '1')
+                    elif c == 't' or c == 'f' or c == 'y' or c == 'n':
+                        self.is_openshift = (c == 't' or c == 'y')
+
             for s in m_cp.sections():
                 if s.startswith('cluster_'):
                     self.clusters[s[8:]] = ClusterInfo(s[8:], m_cp, s)

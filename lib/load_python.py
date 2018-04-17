@@ -16,7 +16,7 @@ import loader
 import kube_yaml
 from load_python_core import do_compile_internal
 from kube_obj import KubeObj, KubeBaseObj
-from obj_registry import obj_registry
+from obj_registry import obj_registry, get_ns
 from user_error import UserError, user_originated, handle_user_error
 from output import RubiksOutputError, OutputCollection
 from lookup import Resolver
@@ -453,6 +453,12 @@ class PythonBaseFile(object):
         def current_namespace():
             return KubeBaseObj._default_ns
 
+        def get_namespace(ns=None):
+            if ns is None:
+                return get_ns(None, KubeBaseObj._default_ns)
+            else:
+                return get_ns(None, ns)
+
         clusters = tuple(self.collection().repository.get_clusters())
 
         def cluster_info(c):
@@ -466,6 +472,7 @@ class PythonBaseFile(object):
             'get_multi_python': get_multi_python,
             'namespace': namespace,
             'current_namespace': current_namespace,
+            'get_namespace': get_namespace,
 
             'stop': stop,
 
