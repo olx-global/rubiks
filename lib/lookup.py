@@ -93,7 +93,7 @@ class Resolver(object):
                     self.data.update(yaml_load(data))
                     self.has_data = True
                 except:
-                    if fail_ok:
+                    if self.fail_ok:
                         print("Can't parse {} as JSON or YAML".format(path.repo_rel_path), file=sys.stderr)
                     else:
                         raise ValueError("Unparseable file " + path.repo_rel_path)
