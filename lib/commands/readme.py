@@ -42,19 +42,42 @@ class Command_readme(Command, CommandRepositoryBase, LoaderBase):
 
         clusterinfo = ''
         if len(clusters) == 0:
-            clusterinfo += 'no clusters'
+            clusterinfo += '1 implicit cluster'
         elif len(clusters) == 1:
-            clusterinfo += '1 cluster'
+            clusterinfo += '1 explicit cluster'
         else:
             clusterinfo += '{} clusters'.format(len(clusters))
         if len(clusters) > 0:
+            if r.is_openshift:
+                cluster_types = set(['O'])
+            else:
+                cluster_types = set()
+                for c in clusters:
+                    if r.get_cluster_info(c).is_openshift:
+                        cluster_types.add('O')
+                    else:
+                        cluster_types.add('K')
             def render_cluster(c):
-                if r.get_cluster_info(c).is_prod:
-                    return '**' + c + '**'
-                return '*' + c + '*'
+                info = r.get_cluster_info(c)
+                end = ''
+                if len(cluster_types) == 2:
+                    if info.is_openshift:
+                        end = ' (O)'
+                    else:
+                        end = ' (K)'
+                if info.is_prod:
+                    return '**' + c + '**' + end
+                return '*' + c + '*' + end
             clusterinfo += ' ({})'.format(', '.join(map(render_cluster, clusters)))
             output_layout = '`{}/<cluster>/<global>.yaml` or `{}/<cluster>/<namespace>/<objects>.yaml`'
+            if len(cluster_types) == 1:
+                if tuple(cluster_types)[0] == 'O':
+                    clusterinfo += ', all clusters configured to generate openshift-specifics'
+            else:
+                clusterinfo += ', clusters have mixed configuration - (O) openshift, (K) kubernetes'
         else:
+            if r.is_openshift:
+                clusterinfo += ", configured to generate openshift-specifics"
             output_layout = '`{}/<global>.yaml` or `{}/<namespace>/<objects>.yaml`'
         output_layout = output_layout.format(r.outputs, r.outputs)
 
