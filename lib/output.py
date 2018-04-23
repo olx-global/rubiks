@@ -119,13 +119,6 @@ class OutputCollection(object):
 
                     changed.extend(self._write_namespace(outputs, path, confidential, is_openshift))
 
-                    if any(map(lambda x: x.has_data() and not x.is_namespace, outputs)):
-                        for op in outputs:
-                            p = op.write_file(path)
-                            if p is not None:
-                                changed.append(p)
-                            confidential.add_file(op)
-
                 if not c in self.clustered:
                     continue
 
