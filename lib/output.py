@@ -142,8 +142,11 @@ class OutputCollection(object):
     def _write_namespace(self, outputs, path, confidential, is_openshift=False):
         changed = []
 
-        if any(map(lambda x: x.has_data() and not x.is_namespace, outputs)):
-            for op in outputs:
+        outputs_ns = filter(lambda x: x.uses_namespace, outputs)
+        outputs_nons = filter(lambda x: not x.uses_namespace, outputs)
+
+        if any(map(lambda x: x.has_data() and not x.is_namespace, outputs_ns)):
+            for op in outputs_ns:
                 if op.is_namespace:
                     continue
                 p = op.write_file(path)
@@ -151,7 +154,7 @@ class OutputCollection(object):
                     changed.append(p)
                 confidential.add_file(op)
 
-            for op in outputs:
+            for op in outputs_ns:
                 if not op.is_namespace:
                     continue
                 if not is_openshift:
@@ -167,6 +170,14 @@ class OutputCollection(object):
                             changed.append(p)
                         confidential.add_file(op_)
                 break
+
+        for op in outputs_nons:
+            if op.is_namespace:
+                continue
+            p = op.write_file(path)
+            if p is not None:
+                changed.append(p)
+            confidential.add_file(op)
 
         return changed
 

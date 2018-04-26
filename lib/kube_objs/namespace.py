@@ -32,10 +32,6 @@ class Namespace(KubeObj):
         }
 
     def render(self):
-        if self.name in ('kube-system', 'default'):
-            return None
-        if self._is_openshift and self.name in ('openshift', 'openshift-infra'):
-            return None
         return {'metadata': {'name': self.name, 'labels': {'name': self.name}}}
 
 
