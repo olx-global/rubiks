@@ -35,6 +35,7 @@ class ContainerPort(KubeSubObj):
     _defaults = {
         'containerPort': 80,
         'hostPort': None,
+        'hostIP': None,
         'name': None,
         'protocol': 'TCP',
         }
@@ -42,6 +43,7 @@ class ContainerPort(KubeSubObj):
     _types = {
         'containerPort': Positive(NonZero(Integer)),
         'hostPort': Nullable(Positive(NonZero(Integer))),
+        'hostIP': Nullable(IP),
         'name': Nullable(String),
         'protocol': Enum('TCP', 'UDP'),
         }
