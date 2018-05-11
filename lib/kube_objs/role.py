@@ -166,14 +166,28 @@ class RoleSubject(KubeSubObj):
 class RoleRef(KubeSubObj):
     _defaults = {
         'name': None,
+        'ns': None,
         }
 
     _types = {
         'name': Nullable(SystemIdentifier),
+        'ns': Nullable(Identifier),
+        }
+
+    _parse = {
+        'ns': ('namespace',),
+        }
+
+    _exclude = {
+        '.apiVersion': True,
+        '.kind': True,
+        '.fieldPath': True,
+        '.resourceVersion': True,
+        '.uid': True,
         }
 
     def render(self):
-        return self.renderer()
+        return self.renderer(order=('namespace', 'name'), mapping={'ns': 'namespace'})
 
 
 class RoleBindingBase(KubeObj):
@@ -196,8 +210,8 @@ class RoleBindingBase(KubeObj):
         }
 
     def xf_roleRef(self, v):
-        if isinstance(v, Role) and v.namespace == self.namespace:
-            return RoleRef(name=v.name)
+        if isinstance(v, Role) and v.namespace == self.namespace and self._uses_namespace:
+            return RoleRef(name=v.name, ns=v.namespace.name)
         elif isinstance(v, ClusterRole):
             return RoleRef(name=v.name)
         elif String().do_check(v, None):
