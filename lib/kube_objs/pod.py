@@ -49,12 +49,7 @@ class ContainerPort(KubeSubObj):
         }
 
     def render(self):
-        ret = copy.deepcopy(self._data)
-        if ret['name'] is None:
-            del ret['name']
-        if ret['hostPort'] is None:
-            del ret['hostPort']
-        return order_dict(ret, ('name', 'containerPort', 'hostPort', 'protocol'))
+        return self.renderer(order=('name',))
 
 
 class ContainerResourceEachSpec(KubeSubObj):
