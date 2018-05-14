@@ -15,14 +15,7 @@ except ImportError:
 import repository
 
 
-class ClusterInfo(object):
-    def __init__(self, name, cp, section):
-        self.name = name
-        self.prod_state = self._value(cp, section, 'prod_state', 'string', default='production')
-        self.is_openshift = self._value(cp, section, 'is_openshift', 'bool', default=False)
-        self.is_prod = self.prod_state == 'production'
-        self.read_only = True
-
+class IniValue(object):
     def _value(self, cp, section, option, typ='string', default=None):
         if cp.has_section(section) and cp.has_option(section, option):
             if typ == 'string':
@@ -46,18 +39,29 @@ class ClusterInfo(object):
                     return c == 't' or c == 'y'
         return default
 
+
+class ClusterInfo(IniValue):
+    def __init__(self, name, cp, section):
+        self.name = name
+        self.prod_state = self._value(cp, section, 'prod_state', 'string', default='production')
+        self.is_openshift = self._value(cp, section, 'is_openshift', 'bool', default=False)
+        self.output_policybinding = self._value(cp, section, 'output_policybinding', 'bool', default=False)
+        self.is_prod = self.prod_state == 'production'
+        self.read_only = True
+
     def __setattr__(self, k, v):
         if not hasattr(self, 'read_only') or not self.read_only:
             return object.__setattr__(self, k, v)
         raise AttributeError("ClusterInfo object is read-only")
 
 
-class RubiksRepository(repository.Repository):
+class RubiksRepository(repository.Repository, IniValue):
     def __init__(self, *args, **kwargs):
         repository.Repository.__init__(self, *args, **kwargs)
         self.pythonpath = []
         self.clusters = {}
         self.is_openshift = False
+        self.output_policybinding = False
         self.confidentiality_mode = None
         if os.path.exists(os.path.join(self.basepath, '.rubiks')):
             m_cp = ConfigParser()
@@ -74,14 +78,8 @@ class RubiksRepository(repository.Repository):
                 if m_cp.has_option('layout', 'confidentiality_mode'):
                     self.confidentiality_mode = m_cp.get('layout', 'confidentiality_mode', raw=True)
 
-            if m_cp.has_section('global'):
-                if m_cp.has_option('global', 'is_openshift'):
-                    v = m_cp.get('global', 'is_openshift', raw=True)
-                    c = v[0].lower()
-                    if v == '0' or v == '1':
-                        self.is_openshift = (v == '1')
-                    elif c == 't' or c == 'f' or c == 'y' or c == 'n':
-                        self.is_openshift = (c == 't' or c == 'y')
+            self.is_openshift = self._value(m_cp, 'global', 'is_openshift', 'bool', default=False)
+            self.output_policybinding = self._value(m_cp, 'global', 'output_policybinding', 'bool', default=False)
 
             for s in m_cp.sections():
                 if s.startswith('cluster_'):

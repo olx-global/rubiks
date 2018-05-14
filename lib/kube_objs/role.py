@@ -190,27 +190,11 @@ class RoleRef(KubeSubObj):
         return self.renderer(order=('namespace', 'name'), mapping={'ns': 'namespace'})
 
 
-class RoleBindingBase(KubeObj):
-    _always_regenerate = True
-    _output_order = 30
-
-    _defaults = {
-        'roleRef': RoleRef(),
-        'subjects': [],
-        }
-
-    _types = {
-        'roleRef': RoleRef,
-        'subjects': NonEmpty(List(RoleSubject)),
-        }
-
-    _exclude = {
-        '.groupNames': True,
-        '.userNames': True,
-        }
-
+class RoleBindingXF(object):
     def xf_roleRef(self, v):
         if isinstance(v, Role) and v.namespace == self.namespace and self._uses_namespace:
+            return RoleRef(name=v.name, ns=v.namespace.name)
+        elif isinstance(v, Role) and hasattr(self, 'ns') and v.namespace.name == self.ns:
             return RoleRef(name=v.name, ns=v.namespace.name)
         elif isinstance(v, ClusterRole):
             return RoleRef(name=v.name)
@@ -241,6 +225,26 @@ class RoleBindingBase(KubeObj):
                 ret.append(vv)
         return ret
 
+
+class RoleBindingBase(KubeObj, RoleBindingXF):
+    _always_regenerate = True
+    _output_order = 30
+
+    _defaults = {
+        'roleRef': RoleRef(),
+        'subjects': [],
+        }
+
+    _types = {
+        'roleRef': RoleRef,
+        'subjects': NonEmpty(List(RoleSubject)),
+        }
+
+    _exclude = {
+        '.groupNames': True,
+        '.userNames': True,
+        }
+
     def render(self):
         ret = self.renderer()
         return {'metadata': {'name': self._data['name']},
@@ -261,4 +265,127 @@ class RoleBinding(RoleBindingBase):
 
     _types = {
         'name': SystemIdentifier,
-    }
+        }
+
+
+class PolicyBindingRoleBinding(KubeSubObj, RoleBindingXF):
+    _defaults = {
+        'name': None,
+        'ns': None,
+        'roleRef': RoleRef(),
+        'subjects': [],
+        'metadata': None,
+        }
+
+    _types = {
+        'name': SystemIdentifier,
+        'ns': Identifier,
+        'roleRef': RoleRef,
+        'subjects': NonEmpty(List(RoleSubject)),
+        'metadata': Nullable(Map(String, String)),
+        }
+
+    _parse = {
+        'roleRef': ('roleBinding', 'roleRef'),
+        'subjects': ('roleBinding', 'subjects'),
+        'metadata': ('roleBinding', 'metadata'),
+        }
+
+    _exclude = {
+        '.name': True,
+        '.roleBinding.groupNames': True,
+        '.roleBinding.userNames': True,
+        }
+
+    def find_subparser(self, doc):
+        if doc['name'] != doc['roleBinding']['metadata']['name']:
+            raise UserError(KubeObjParseError('roleBinding name does not match up', self, doc))
+        return PolicyBindingRoleBinding
+
+    def parser_fixup(self):
+        self._data['name'] = self._data['metadata']['name']
+        self._data['ns'] = self._data['metadata']['namespace']
+        self._data['metadata'] = None
+
+    def render(self):
+        rr = self.renderer()
+        rb = {'metadata': {'name': self._data['name'], 'namespace': self._data['ns']},
+              'roleRef': rr['roleRef'], 'subjects': rr['subjects'], 'userNames': None, 'groupNames': None,
+              }
+        return order_dict({'name': self._data['name'], 'roleBinding': order_dict(rb, ('metadata',))}, ('name',))
+
+
+class PolicyBinding(KubeObj):
+    apiVersion = 'v1'
+    kind = 'PolicyBinding'
+    kubectltype = 'policybinding'
+
+    _output_order = 5
+
+    _defaults = {
+        'roleBindings': [],
+        }
+
+    _types = {
+        'name': ColonIdentifier,
+        'roleBindings': List(PolicyBindingRoleBinding),
+        }
+
+    _exclude = {
+        '.policyRef': True,
+        }
+
+    def find_subparser(self, doc):
+        if doc['policyRef'].get('namespace', '') + ':' + doc['policyRef']['name'] != doc['metadata']['name']:
+            raise UserError(KubeObjParseError('policyRef does not match name', self, doc))
+
+        if 'namespace' in doc['policyRef'] and 'namespace' in doc['metadata'] and \
+                doc['policyRef']['namespace'] != doc['metadata']['namespace']:
+            raise UserError(KubeObjParseError('policyRef namespace does not match metadata', self, doc))
+
+        namespace = None
+        if namespace is None:
+            namespace = doc['policyRef'].get('namespace', None)
+        if namespace is None:
+            namespace = doc['metadata'].get('namespace', None)
+
+        if namespace is not None:
+            for rb in doc['roleBindings']:
+                if rb['roleBinding']['metadata'].get('namespace', None) is not None \
+                        and namespace != rb['roleBinding']['metadata']['namespace']:
+                    raise UserError(KubeObjParseError(
+                        'roleBinding {} metadata namespace does not match metadata'.format(rb['name']), self, doc))
+                if doc['policyRef'].get('namespace', None) is not None and \
+                        namespace != rb['roleBinding']['roleRef'].get('namespace', None):
+                    raise UserError(KubeObjParseError(
+                        'roleBinding {} policyRef needs roleRef namespace'.format(rb['name']), self, doc))
+                for s in rb['roleBinding']['subjects']:
+                    if 'namespace' in s and s['namespace'] != namespace:
+                        raise UserError(KubeObjParseError(
+                            'roleBinding {} subject {} namespace does not match'.format(rb['name'], s['name']),
+                            self, doc))
+
+        return PolicyBinding
+
+    def xf_roleBindings(self, v):
+        if not isinstance(v, list):
+            return v
+
+        ret = []
+        for vv in v:
+            if isinstance(vv, PolicyBindingRoleBinding):
+                ret.append(vv)
+            elif isinstance(vv, RoleBinding):
+                ret.append(PolicyBindingRoleBinding(
+                    name=vv.name, ns=vv.namespace.name, roleRef=vv.roleRef, subjects=vv.subjects))
+            else:
+                ret.append(vv)
+        return ret
+
+    def render(self):
+        ns, name = self._data['name'].split(':', 1)
+        rr = self.renderer()
+        return {'metadata': {'name': self._data['name']},
+                'policyRef': {'name': name, 'namespace': ns},
+                'roleBindings': rr['roleBindings'],
+                }

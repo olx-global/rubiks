@@ -36,6 +36,8 @@ A .rubiks file is a .ini file with several sections and options
 
 - `is_openshift` _(default `false`)_ see per-cluster version but overrides per-cluster
   setting if true and used in clusterless mode
+- `output_policybinding` _(default `false`)_ see per-cluster version but overrides per-cluster
+  setting if true and used in clusterless mode
 
 ### `[cluster_<clustername>]` sections
 
@@ -45,4 +47,9 @@ sections define what clusters are available, even if empty
 - `prod_state` _(default `production`)_ state of this cluster - allows `.is_prod`
   attribute to be read on the ClusterInfo object
 - `is_openshift` _(default `false`)_ if this cluster is openshift then generate
-  project and standard RoleBindings instead of Namespace
+  project and standard RoleBindings as well as Namespace
+- `output_policybinding` _(default `false`)_ for some earlier openshift RBAC, you can't
+  create a RoleBinding referring to a Role (as opposed to a ClusterRole) directly. Instead
+  all of the RoleBindings group into a <namespace-name>:default PolicyBinding in the
+  namespace. With this option, this happens automatically when creating RoleBindings of
+  this form. Note that `is_openshift` doesn't need to be set for this option to take effect.

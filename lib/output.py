@@ -107,6 +107,8 @@ class OutputCollection(object):
             for c in self.repository.get_clusters():
                 path = os.path.join(self.base, c)
                 is_openshift = self.repository.is_openshift or self.repository.get_cluster_info(c).is_openshift
+                uses_policybinding = self.repository.output_policybinding or \
+                    self.repository.get_cluster_info(c).output_policybinding
                 mkdir_p(path)
 
                 ns_done = set()
@@ -117,7 +119,10 @@ class OutputCollection(object):
                     if c in self.clustered and ns in self.clustered[c]:
                         outputs.extend(self.clustered[c][ns].values())
 
-                    changed.extend(self._write_namespace(outputs, path, confidential, is_openshift))
+                    changed.extend(self._write_namespace(outputs, path, confidential,
+                                                         is_openshift=is_openshift,
+                                                         uses_policybinding=uses_policybinding,
+                                                         ))
 
                 if not c in self.clustered:
                     continue
@@ -126,8 +131,10 @@ class OutputCollection(object):
                     if ns in ns_done:
                         continue
 
-                    changed.extend(self._write_namespace(self.clustered[c][ns].values(), path,
-                                                         confidential, is_openshift))
+                    changed.extend(self._write_namespace(self.clustered[c][ns].values(), path, confidential,
+                                                         is_openshift=is_openshift,
+                                                         uses_policybinding=uses_policybinding,
+                                                         ))
         return changed
 
     def _write_output_clusterless(self):
@@ -136,40 +143,55 @@ class OutputCollection(object):
         with self.confidential(self.base) as confidential:
             for ns in self.clusterless:
                 changed.extend(self._write_namespace(self.clusterless[ns].values(), self.base,
-                                                     confidential, self.repository.is_openshift))
+                                                     confidential, 
+                                                     is_openshift=self.repository.is_openshift,
+                                                     uses_policybinding=self.repository.output_policybinding,
+                                                     ))
         return changed
 
-    def _write_namespace(self, outputs, path, confidential, is_openshift=False):
+    def _write_namespace(self, outputs, path, confidential, is_openshift=False, uses_policybinding=False):
         changed = []
 
         outputs_ns = filter(lambda x: x.uses_namespace, outputs)
         outputs_nons = filter(lambda x: not x.uses_namespace, outputs)
 
         if any(map(lambda x: x.has_data() and not x.is_namespace, outputs_ns)):
+            stage_1 = []
+            first = True
             for op in outputs_ns:
-                if op.is_namespace:
-                    continue
+                if is_openshift and op.is_namespace:
+                    if first:
+                        stage_1.extend(self._get_openshift_objs(op))
+                    first = False
+                else:
+                    stage_1.append(op)
+
+            stage_2 = []
+            rolebindings = []
+            for op in stage_1:
+                if uses_policybinding and isinstance(op.kobj, kube_objs.RoleBinding) and \
+                        op.cached_obj.get('roleRef', {}).get('namespace', None) is not None:
+                    rolebindings.append(op)
+                else:
+                    stage_2.append(op)
+
+            if len(rolebindings) != 0:
+                op = OutputMember(self, kube_objs.PolicyBinding(
+                                      rolebindings[0].namespace.name + ':default',
+                                      roleBindings=list(map(lambda x: x.kobj, rolebindings)),
+                                      ),
+                                  None, content_check=self.content_check,
+                                  )
+                op.kobj.set_namespace(rolebindings[0].namespace.name)
+                op.namespace_name = rolebindings[0].namespace.name
+                op.render()
+                stage_2.append(op)
+
+            for op in stage_2:
                 p = op.write_file(path)
                 if p is not None:
                     changed.append(p)
                 confidential.add_file(op)
-
-            for op in outputs_ns:
-                if not op.is_namespace:
-                    continue
-                if not is_openshift:
-                    p = op.write_file(path)
-                    if p is not None:
-                        changed.append(p)
-                    confidential.add_file(op)
-                else:
-                    new_op = self._get_openshift_objs(op)
-                    for op_ in new_op:
-                        p = op_.write_file(path)
-                        if p is not None:
-                            changed.append(p)
-                        confidential.add_file(op_)
-                break
 
         for op in outputs_nons:
             if op.is_namespace:
@@ -182,7 +204,7 @@ class OutputCollection(object):
         return changed
 
     def _get_openshift_objs(self, ns_op):
-        new_op = []
+        new_op = [ns_op]
 
         Project = kube_objs.Project
         RoleBinding = kube_objs.RoleBinding

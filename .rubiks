@@ -6,5 +6,7 @@ confidentiality_mode = gitignore-single
 
 [cluster_staging]
 prod_state = staging
+output_policybinding = true
 
 [cluster_production]
+is_openshift = true

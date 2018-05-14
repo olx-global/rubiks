@@ -1,3 +1,9 @@
+with namespace('role-test'):
+    sa = ServiceAccount('role-test-sa')
+    role = Role('role-test-role')
+    role.new_rule(resources=['pods'], verbs=['get', 'list'])
+    RoleBinding('role-test-binding', roleRef=role, subjects=[sa])
+
 print("current_cluster:", current_cluster_name)
 if current_cluster_name == 'production':
     stop()

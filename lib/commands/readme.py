@@ -79,6 +79,20 @@ class Command_readme(Command, CommandRepositoryBase, LoaderBase):
             if r.is_openshift:
                 clusterinfo += ", configured to generate openshift-specifics"
             output_layout = '`{}/<global>.yaml` or `{}/<namespace>/<objects>.yaml`'
+        if len(clusters) > 0:
+            if r.output_policybinding or all(map(lambda x: r.get_cluster_info(x).output_policybinding, clusters)):
+                clusterinfo += '. RoleBindings referring to Roles will always generate PolicyBindings instead'
+            else:
+                pb_clusters = list(filter(lambda x: r.get_cluster_info(x).output_policybinding, clusters))
+                if len(pb_clusters) > 0:
+                    clusterinfo += '. RoleBindings referring to Roles will generate PolicyBindings instead in'
+                    if len(pb_clusters) == 1:
+                        clusterinfo += ' ' + pb_clusters[0]
+                    else:
+                        clusterinfo += ' ' + ', '.join(pb_clusters[:-1]) + ', and ' + pb_clusters[-1]
+        else:
+            if r.output_policybinding:
+                clusterinfo += '. RoleBindings referring to Roles will always generate PolicyBindings instead'
         output_layout = output_layout.format(r.outputs, r.outputs)
 
         pythonpath = ''
