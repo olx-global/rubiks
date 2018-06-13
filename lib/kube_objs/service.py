@@ -67,9 +67,7 @@ class Service(KubeObj):
 
     def xf_selector(self, v):
         if isinstance(v, PodTemplateSpec):
-            ret = {}
-            ret.update(v.labels)
-            return ret
+            return order_dict(v.labels, ())
 
         return v
 

@@ -21,7 +21,10 @@ class Base64(var_types.VarEntity):
         self.value = value
 
     def to_string(self):
-        s = str(self.value)
+        if isinstance(self.value, var_types.VarEntity) and self._in_validation:
+            s = self.value.validation_value()
+        else:
+            s = str(self.value)
         try:
             return base64.b64encode(s).decode('utf8')
         except TypeError:
@@ -36,7 +39,10 @@ class JSON(var_types.VarEntity):
     def to_string(self):
         def _default_json(obj):
             if isinstance(obj, var_types.VarEntity):
-                return str(obj)
+                if self._in_validation:
+                    return obj.validation_value()
+                else:
+                    return str(obj)
             raise TypeError("Unknown type for object {}".format(repr(obj)))
         return json.JSONEncoder(default=_default_json, **(self.args)).encode(self.value)
 
@@ -46,7 +52,10 @@ class YAML(var_types.VarEntity):
         self.value = value
 
     def to_string(self):
-        return str(kube_yaml.yaml_safe_dump(self.value, default_flow_style=False))
+        ret = kube_yaml.yaml_safe_dump(self.value, default_flow_style=False)
+        if isinstance(ret, var_types.VarEntity) and self._in_validation:
+            return ret.validation_value()
+        return str(ret)
 
 
 class Confidential(var_types.VarEntity):

@@ -106,7 +106,10 @@ class VarEntity(object):
                 if not isinstance(self.var[i], VarEntity) and self.var[i] == 'self':
                     ret += self.to_string()
                 elif isinstance(self.var[i], VarEntity):
-                    ret += self.var[i].__str__()
+                    if self._in_validation:
+                        ret += self.var[i].validation_value()
+                    else:
+                        ret += self.var[i].__str__()
                 else:
                     raise TypeError("Unexpected object type {} as part of vars".format(repr(self.vars)))
         return ret

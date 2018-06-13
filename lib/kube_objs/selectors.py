@@ -5,7 +5,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from kube_obj import KubeSubObj
+from kube_obj import KubeSubObj, order_dict
 from kube_types import *
 from user_error import UserError
 
@@ -26,7 +26,7 @@ class MatchLabelsSelector(BaseSelector):
         ret = self.renderer()
         if len(ret['matchLabels']) == 0:
             return None
-        return {'matchLabels': ret['matchLabels']}
+        return {'matchLabels': order_dict(ret['matchLabels'], ())}
 
 
 class MatchExpressionInvalid(Exception):

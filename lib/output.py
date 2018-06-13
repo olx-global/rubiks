@@ -152,8 +152,8 @@ class OutputCollection(object):
     def _write_namespace(self, outputs, path, confidential, is_openshift=False, uses_policybinding=False):
         changed = []
 
-        outputs_ns = filter(lambda x: x.uses_namespace, outputs)
-        outputs_nons = filter(lambda x: not x.uses_namespace, outputs)
+        outputs_ns = tuple(filter(lambda x: x.uses_namespace, outputs))
+        outputs_nons = tuple(filter(lambda x: not x.uses_namespace, outputs))
 
         if any(map(lambda x: x.has_data() and not x.is_namespace, outputs_ns)):
             stage_1 = []
