@@ -782,11 +782,15 @@ class KubeBaseObj(object):
         for r in self._data:
             if r not in ret:
                 continue
+
             if isinstance(ret[r], (list, tuple)):
                 ret[r] = list(filter(lambda x: x is not None, map(_render, ret[r])))
             elif isinstance(ret[r], dict):
                 tret = OrderedDict()
-                for k in ret[r]:
+                keys = ret[r].keys()
+                if not isinstance(ret[r], OrderedDict):
+                    keys = sorted(keys)
+                for k in keys:
                     res = _render(ret[r][k])
                     if res is not None:
                         tret[k] = res

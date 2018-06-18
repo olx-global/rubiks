@@ -26,7 +26,7 @@ class MatchLabelsSelector(BaseSelector):
         ret = self.renderer()
         if len(ret['matchLabels']) == 0:
             return None
-        return {'matchLabels': order_dict(ret['matchLabels'], ())}
+        return {'matchLabels': ret['matchLabels']}
 
 
 class MatchExpressionInvalid(Exception):
