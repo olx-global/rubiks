@@ -49,7 +49,7 @@ class KubeObjParseError(Exception):
         self.doc = input_doc
 
     def __repr__(self):
-        return '{}(obj={}, doc={})'.format(self.__class__.__name__, self.obj.__name__, repr(doc))
+        return '{}(obj={}, doc={})'.format(self.__class__.__name__, self.obj.__name__, repr(self.doc))
 
 
 class KubeTypeUnresolvable(Exception):
@@ -237,7 +237,7 @@ class KubeBaseObj(object):
                         tk = basic_validation(kk)
                         tv = basic_validation(vv)
                         if tk is not None and tv is not None:
-                            types[k] = NonEmpty(Dict(tk, tv))
+                            types[k] = NonEmpty(Map(tk, tv))
 
                 if not isinstance(types[k], KubeType):
                     raise KubeTypeUnresolvable(

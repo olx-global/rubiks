@@ -1,4 +1,6 @@
-![Rubiks Logo](docs/logos/rubiks-logo-horizontal.png)
+<p align="center">
+  <img src="docs/logos/rubiks-logo-horizontal.png" title="Rubiks Logo">
+</p>
 
 # Rubiks - a kubernetes yaml file manager
 
