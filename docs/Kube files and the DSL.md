@@ -26,6 +26,10 @@ Functions and variables that are available in the rubiks files
   function to read a file and make it available in a variable (eg. for a ConfigMap)
   - `cant_read_ok`: return None instead of raising an exception if the file is unreadable
 
+- `list_dir(<relative path>[, cant_read_ok=False])`<br>
+  function to list a directory and make it available in a variable (basically `os.listdir()` but with relative path handling)
+  - `cant_read_ok`: return `[]` instead of raising an exception if the directory is unlistable
+
 - `run_command(<cmd>[, ...<args>][, cwd=<path>][, env={...}][, env_clear=False][, delay=True][, ignore_rc=True][, rstrip=True][, eol=False])`<br>
   run a command (with arguments) and capture the output
   - `rstrip`: run an "rstrip()" stripping trailing whitespace from the output

@@ -383,6 +383,16 @@ class PythonBaseFile(object):
                     return None
                 raise
 
+        @_user_error
+        def list_dir(path, cant_read_ok=False):
+            path = self.path.rel_path(path)
+            try:
+                return os.listdir(path.full_path)
+            except:
+                if cant_read_ok:
+                    return []
+                raise
+
         def load_object(obj):
             return KubeObj.parse_obj(obj)
 
@@ -482,6 +492,7 @@ class PythonBaseFile(object):
             'json_dump': json_dump,
 
             'read_file': read_file,
+            'list_dir': list_dir,
             'run_command': run_command,
             'get_lookup': get_lookup,
 
