@@ -57,10 +57,12 @@ class KubeType(object):
             return self.wrap.original_type()
         return None
 
-    def name(self):
+    def name(self, render=None):
+        if render is None:
+            render = lambda x: x
         if self.wrapper:
-            return '{}<{}>'.format(self.__class__.__name__, self.wrap.name())
-        return self.__class__.__name__
+            return '{}<{}>'.format(render(self.__class__.__name__), self.wrap.name(render=render))
+        return render(self.__class__.__name__)
 
     def check_wrap(self, value, path):
         if self.wrapper:
@@ -91,8 +93,10 @@ class Object(KubeType):
     def original_type(self):
         return self.cls
 
-    def name(self):
-        return self.cls.__name__
+    def name(self, render=None):
+        if render is None:
+            render = lambda x: x
+        return render(self.cls.__name__)
 
     def do_check(self, value, path):
         self.validation_text = "Not the right object type"
@@ -125,8 +129,17 @@ class Enum(KubeType):
     def __init__(self, *args):
         self.enums = args
 
-    def name(self):
-        return '{}({})'.format(self.__class__.__name__, ', '.join(map(repr, self.enums)))
+    def name(self, render=None):
+        if render is None:
+            render = lambda x: x
+
+        def fake_repr(x):
+            ret = repr(x)
+            if ret.startswith("u'"):
+                return render(ret[1:])
+            return render(ret)
+
+        return '{}({})'.format(render(self.__class__.__name__), ', '.join(map(fake_repr, self.enums)))
 
     def do_check(self, value, path):
         return value in self.enums
@@ -374,8 +387,10 @@ class OneOf(KubeType):
         assert len(types) > 1
         self.types = list(map(self.__class__.construct_arg, types))
 
-    def name(self):
-        return self.__class__.__name__ + '<' + ', '.join(map(lambda x: x.name(), self.types)) + '>'
+    def name(self, render=None):
+        if render is None:
+            render = lambda x: x
+        return render(self.__class__.__name__) + '<' + ', '.join(map(lambda x: x.name(render=render), self.types)) + '>'
 
     def original_type(self):
         # XXX this becomes complicated to do - for the moment assume none
@@ -427,8 +442,10 @@ class Map(KubeType):
         self.key = self.__class__.construct_arg(key)
         self.value = self.__class__.construct_arg(value)
 
-    def name(self):
-        return '{}<{}, {}>'.format(self.__class__.__name__, self.key.name(), self.value.name())
+    def name(self, render=None):
+        if render is None:
+            render = lambda x: x
+        return '{}<{}, {}>'.format(render(self.__class__.__name__), self.key.name(render=render), self.value.name(render=render))
 
     def original_type(self):
         t = self.value.original_type()

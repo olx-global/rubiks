@@ -164,5 +164,48 @@ class TestBasicTypes(unittest.TestCase):
         Path().check('/a/b/c')
         Path().check('/a')
 
+    def assertNameFormatter(self, cls):
+        # Markdown link renderer
+        md_render = lambda x: '[{}](#{})'.format(x, x.lower())
+        # Default formatter
+        null_render = lambda x: x
+
+        # Assertion using the formatter
+        self.assertEqual(cls().name(), cls.__name__)
+        self.assertEqual(cls().name(render=null_render), cls.__name__)
+        self.assertEqual(cls().name(render=md_render), '[{}](#{})'.format(cls().name(), cls().name().lower()))
+    
+    def test_name_render(self):
+        # Markdown link renderer
+        render=lambda x: '[{}](#{})'.format(x, x.lower())
+
+        self.assertNameFormatter(Boolean)
+        self.assertNameFormatter(ARN,)
+        self.assertNameFormatter(Domain)
+        self.assertNameFormatter(String)
+        self.assertNameFormatter(Number)
+        self.assertNameFormatter(Integer)
+        self.assertNameFormatter(IPv4)
+        self.assertNameFormatter(SurgeSpec)
+        self.assertNameFormatter(IP)
+        self.assertNameFormatter(Identifier)
+        self.assertNameFormatter(CaseIdentifier)
+        self.assertNameFormatter(SystemIdentifier)
+        self.assertNameFormatter(ColonIdentifier)
+        self.assertNameFormatter(Path)
+
+        self.assertEqual(List(String).name(render=render), '[List](#list)<[String](#string)>')
+
+        self.assertEqual(Map(Number, String).name(render=render), '[Map](#map)<{}, {}>'.format(
+            Number().name(render=render), 
+            String().name(render=render)
+            ))
+
+        self.assertEqual(Map(String, List([])).name(render=render), '[Map](#map)<{}, {}>'.format(
+            String().name(render=render), 
+            List([]).name(render=render)
+            ))
+
+
 if __name__ == '__main__':
     unittest.main()
