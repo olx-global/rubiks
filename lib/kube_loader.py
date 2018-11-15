@@ -12,6 +12,7 @@ if sys.version_info[0] == 2:
     import kube_objs
 else:
     import kube_objs.__init__
+# XXX here we will need to collate and pass the paths of the pluggable modules to load them
 kube_objs._loader()
 import obj_registry
 

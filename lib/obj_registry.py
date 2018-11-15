@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 
 from user_error import UserError
 from kube_obj import KubeBaseObj, KubeObj
-from kube_objs.namespace import Namespace
+from kube_objs import Namespace
 
 _REG = None
 

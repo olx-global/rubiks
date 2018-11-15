@@ -7,8 +7,8 @@ from __future__ import unicode_literals
 
 from kube_obj import KubeObj, KubeSubObj, order_dict
 from kube_types import *
-from .pod import *
-from .selectors import *
+import_relative('pod', '*')
+import_relative('selectors', '*')
 
 
 class DplBaseUpdateStrategy(KubeSubObj):

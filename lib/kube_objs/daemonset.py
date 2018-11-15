@@ -6,9 +6,9 @@ from __future__ import print_function
 from __future__ import unicode_literals
 
 from kube_obj import KubeObj, order_dict
-from .pod import *
-from .selectors import BaseSelector
-from .mixins import SelectorsPreProcessMixin
+import_relative('pod', '*')
+import_relative('selectors', 'BaseSelector')
+import_relative('mixins', 'SelectorsPreProcessMixin')
 
 
 class DaemonSet(KubeObj, SelectorsPreProcessMixin):

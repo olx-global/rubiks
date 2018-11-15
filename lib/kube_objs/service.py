@@ -11,8 +11,8 @@ import traceback
 from kube_obj import KubeObj, KubeSubObj, order_dict
 from kube_types import *
 from user_error import UserError
-from . import router
-from .pod import PodTemplateSpec
+import_relative('router')
+import_relative('pod', 'PodTemplateSpec')
 
 
 class ServicePort(KubeSubObj):

@@ -28,3 +28,6 @@ def do_compile_internal(obj, src, path, modname, modpath, nsvars=None, ignorable
     delattr(obj, '_current_module')
 
     return mod
+
+def get_bare_module(modname, modpath):
+    return importlib.util.module_from_spec(importlib.machinery.ModuleSpec(modname, None, origin=modpath))

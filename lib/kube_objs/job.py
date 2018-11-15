@@ -7,10 +7,8 @@ from __future__ import unicode_literals
 
 from kube_obj import KubeObj
 from kube_types import *
-from .environment import *
-from .pod import *
-from .selectors import *
-from .mixins import EnvironmentPreProcessMixin
+import_relative('pod', '*')
+import_relative('selectors', '*')
 
 class Job(KubeObj):
     apiVersion = 'batch/v1'

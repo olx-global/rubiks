@@ -7,10 +7,10 @@ from __future__ import unicode_literals
 
 from kube_obj import KubeObj, KubeSubObj, order_dict
 from kube_types import *
-from .environment import *
-from .pod import *
-from .selectors import *
-from .mixins import EnvironmentPreProcessMixin
+import_relative('environment', '*')
+import_relative('pod', '*')
+import_relative('selectors', '*')
+import_relative('mixins', 'EnvironmentPreProcessMixin')
 
 
 class DCBaseUpdateStrategy(KubeSubObj):

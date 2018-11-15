@@ -27,3 +27,8 @@ def do_compile_internal(obj, src, path, modname, modpath, nsvars=None, ignorable
     delattr(obj, '_current_module')
 
     return mod
+
+def get_bare_module(modname, modpath):
+    mod = imp.new_module(modname)
+    mod.__file__ = modpath
+    return mod

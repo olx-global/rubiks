@@ -8,8 +8,8 @@ from __future__ import unicode_literals
 from kube_obj import KubeObj, KubeSubObj, order_dict
 from kube_types import *
 from user_error import UserError
-from .role import User
-from .service_account import ServiceAccount
+import_relative('role', 'User')
+import_relative('service_account', 'ServiceAccount')
 
 
 class SCCSELinux(KubeSubObj):

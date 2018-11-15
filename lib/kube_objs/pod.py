@@ -10,10 +10,10 @@ import copy
 
 from kube_obj import KubeBaseObj, KubeSubObj, order_dict
 from kube_types import *
-from .environment import *
-from .service_account import ServiceAccount
-from .secret import Secret, DockerCredentials
-from .mixins import EnvironmentPreProcessMixin
+import_relative('environment', '*')
+import_relative('service_account', 'ServiceAccount')
+import_relative('secret', 'Secret', 'DockerCredentials')
+import_relative('mixins', 'EnvironmentPreProcessMixin')
 
 
 class Memory(String):

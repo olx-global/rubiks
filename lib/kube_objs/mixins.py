@@ -5,11 +5,11 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from .environment import *
-from .secret import SingleSecret
-from .configmap import SingleConfig
-from .selectors import *
 from kube_types import *
+import_relative('environment', '*')
+import_relative('secret', 'SingleSecret')
+import_relative('configmap', 'SingleConfig')
+import_relative('selectors', '*')
 
 
 class EnvironmentPreProcessMixin(object):

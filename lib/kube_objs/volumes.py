@@ -8,8 +8,8 @@ from __future__ import unicode_literals
 from collections import OrderedDict
 from kube_obj import KubeSubObj, KubeObj
 from kube_types import *
-from .selectors import BaseSelector
-from .pod import Memory
+import_relative('selectors', 'BaseSelector')
+import_relative('pod', 'Memory')
 
 
 class AWSVolID(String):

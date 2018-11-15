@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 
 from kube_obj import KubeObj, KubeSubObj, order_dict
 from kube_types import *
-from .service_account import ServiceAccount
+import_relative('service_account', 'ServiceAccount')
 
 
 class UserIdentifier(String):

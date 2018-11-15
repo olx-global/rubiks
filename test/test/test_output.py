@@ -13,6 +13,7 @@ import weakref
 
 import python_path
 
+import kube_loader
 import kube_objs
 import loader
 import output

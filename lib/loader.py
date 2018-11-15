@@ -9,6 +9,7 @@ import os
 import sys
 
 from user_error import UserError
+from load_python_core import get_bare_module
 
 DEV = True
 VERBOSE = False
@@ -44,21 +45,30 @@ class LoaderImportError(LoaderBaseException):
 
 
 class Path(object):
-    def __init__(self, path, repository):
-        self.repository = repository
-        self.rootdir = repository.basepath
-        self.srcsdir = os.path.join(repository.basepath, repository.sources)
+    def __init__(self, path, repository=None, base=None):
+        if repository is not None:
+            self.repository = repository
+            self.rootdir = repository.basepath
+            self.srcsdir = os.path.join(repository.basepath, repository.sources)
 
+        self.base = base
         self.full_path = os.path.realpath(path)
-        self.repo_rel_path = os.path.relpath(self.full_path, self.rootdir)
-        self.src_rel_path = os.path.relpath(self.full_path, self.srcsdir)
-        if not self.in_sources():
-            raise LoaderNotInSourcesException('{} is not in sources directory {}'.format(
-                                              self.full_path, self.srcsdir))
+        if repository is not None:
+            self.repo_rel_path = os.path.relpath(self.full_path, self.rootdir)
+            self.src_rel_path = os.path.relpath(self.full_path, self.srcsdir)
+            if not self.in_sources():
+                raise LoaderNotInSourcesException('{} is not in sources directory {}'.format(
+                                                  self.full_path, self.srcsdir))
+
+        if self.base is not None:
+            self.base_rel_path = os.path.relpath(self.full_path, self.base)
 
         self.full_dir = os.path.split(self.full_path)[0]
-        self.repo_rel_dir = os.path.split(self.repo_rel_path)[0]
-        self.src_rel_dir = os.path.split(self.src_rel_path)[0]
+        if repository is not None:
+            self.repo_rel_dir = os.path.split(self.repo_rel_path)[0]
+            self.src_rel_dir = os.path.split(self.src_rel_path)[0]
+        if self.base is not None:
+            self.base_rel_dir = os.path.split(self.base_rel_path)[0]
 
         self.filename = os.path.split(self.full_path)[1]
         if '.' in self.filename:
@@ -71,6 +81,8 @@ class Path(object):
         return not self.src_rel_path.startswith('..')
 
     def dot_path(self):
+        if self.base is not None:
+            return '.'.join(self.base_rel_dir.split(os.path.sep)) + '.' + self.basename
         return '.'.join(self.src_rel_dir.split(os.path.sep)) + '.' + self.basename
 
     def rel_path(self, path):
@@ -150,16 +162,23 @@ class Loader(object):
         try:
             if len(exports) == 0:
                 # import <f_ctx>
-                t_module.__dict__[basename] = f_ctx.get_module(**kwargs)
+                curdict = t_module.__dict__
+                pathcomp = basename.split('.')
+                curpath = f_path.full_path.rsplit('/', len(pathcomp))[0]
+                for p in pathcomp:
+                    if p is pathcomp[-1]:
+                        curdict[p] = f_ctx.get_module(**kwargs)
+                    else:
+                        curpath = os.path.join(curpath, p)
+                        if p not in curdict:
+                            curdict[p] = get_bare_module(p, curpath)
+                        curdict = curdict[p].__dict__
 
             elif len(exports) == 1 and exports[0] == '*':
                 # from <f_ctx> import *
                 all = None
                 imports = set()
                 for sym in f_ctx.get_symnames(**kwargs):
-                    if sym == '__builtins__':
-                        # this is magic, we don't try and be clever
-                        continue
                     if sym == '__all__':
                         # we simulate the __all__ in imported files
                         c_all = f_ctx.get_symbol(sym, **kwargs)
@@ -168,6 +187,9 @@ class Loader(object):
                         continue
                     if sym in reserved_names:
                         # ignore imports of symbols that are inserted by us
+                        continue
+                    if sym.startswith('__') and sym.endswith('__'):
+                        # ignore any internals
                         continue
                     imports.add(sym)
 
@@ -190,24 +212,41 @@ class Loader(object):
                         t_module.__dict__[sym] = f_ctx.get_symbol(sym, **kwargs)
 
         except AssertionError as e:
+            if hasattr(f_path, 'src_rel_path') and hasattr(t_path, 'src_rel_path'):
+                raise LoaderImportError("'*' is only allowed as the only export importing {} -> {} from {}".format(
+                    name, f_path.src_rel_path, t_path.src_rel_path))
             raise LoaderImportError("'*' is only allowed as the only export importing {} -> {} from {}".format(
-                name, f_path.src_rel_path, t_path.src_rel_path))
+                name, f_path.full_path, t_path.full_path))
 
         except KeyError as e:
+            if hasattr(f_path, 'src_rel_path') and hasattr(t_path, 'src_rel_path'):
+                raise LoaderImportError('symbols not found importing {} -> {} from {}: {}'.format(
+                    name, f_path.src_rel_path, t_path.src_rel_path, e))
             raise LoaderImportError('symbols not found importing {} -> {} from {}: {}'.format(
-                name, f_path.src_rel_path, t_path.src_rel_path, e))
+                name, f_path.full_path, t_path.full_path, e))
 
         except LoaderImportError as e:
+            if hasattr(f_path, 'src_rel_path') and hasattr(t_path, 'src_rel_path'):
+                raise LoaderImportError('problem importing {} -> {} from {}: {}'.format(
+                    name, f_path.src_rel_path, t_path.src_rel_path, e))
             raise LoaderImportError('problem importing {} -> {} from {}: {}'.format(
-                name, f_path.src_rel_path, t_path.src_rel_path, e))
+                name, f_path.full_path, t_path.full_path, e))
 
     def add_dep(self, s_path, d_path=None):
-        if s_path.src_rel_path not in self.deps:
-            self.deps[s_path.src_rel_path] = set()
-        if d_path is not None:
-            self.debug(2, '{} depends on {}'.format(s_path, d_path))
-            self.deps[s_path.src_rel_path].add(d_path.src_rel_path)
-            self.check_deps()
+        if hasattr(s_path, 'src_rel_path') and (d_path is None or hasattr(d_path, 'src_rel_path')):
+            if s_path.src_rel_path not in self.deps:
+                self.deps[s_path.src_rel_path] = set()
+            if d_path is not None:
+                self.debug(2, '{} depends on {}'.format(s_path, d_path))
+                self.deps[s_path.src_rel_path].add(d_path.src_rel_path)
+                self.check_deps()
+        else:
+            if s_path.full_path not in self.deps:
+                self.deps[s_path.full_path] = set()
+            if d_path is not None:
+                self.debug(2, '{} depends on {}'.format(s_path, d_path))
+                self.deps[s_path.full_path].add(d_path.full_path)
+                self.check_deps()
 
     def get_or_add_file(self, f_path, comp_context_obj, args):
         if f_path.full_path in self.files:

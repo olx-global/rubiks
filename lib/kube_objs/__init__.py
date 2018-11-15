@@ -5,27 +5,23 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
-import importlib
 import os
 import sys
+from pluggable_loader import KubeObjCollection
 
 
-def _loader():
+def _loader(*extra_dirs):
     # load all the '.py' files in the directory as imports
-    class Dummy(object):
-        pass
+    this = sys.modules[__name__]
 
-    this = sys.modules[Dummy.__module__]
-    basedir = os.path.split(this.__file__)[0]
-    for dent in sorted(os.listdir(basedir)):
-        if not dent.endswith('.py'):
-            continue
-        if dent == '__init__.py':
-            # ourself
-            continue
-        importlib.import_module('..' + dent[:-3], package='{}.__init__'.format(Dummy.__module__))
+    basedir = os.path.split(os.path.split(this.__file__)[0])[0]
 
-        # import types (classes) into our namespace
-        for k in this.__dict__[dent[:-3]].__dict__:
-            if isinstance(this.__dict__[dent[:-3]].__dict__[k], type):
-                this.__dict__[k] = this.__dict__[dent[:-3]].__dict__[k]
+    bases = [basedir]
+    bases.extend(extra_dirs)
+
+    coll = KubeObjCollection(bases)
+    coll.load_all_python()
+
+    for k in coll.symbols:
+        if isinstance(coll.symbols[k], type):
+            this.__dict__[k] = coll.symbols[k]

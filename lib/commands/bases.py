@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 from command import Command, RuntimeException
 from rubiks_repository import RubiksRepository
 from repository import RepositoryError
+import kube_loader
 import obj_registry
 import loader
 

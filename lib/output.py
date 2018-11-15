@@ -15,7 +15,7 @@ from kube_obj import KubeObj
 from kube_yaml import yaml_safe_dump, yaml_load
 from util import mkdir_p
 from user_error import UserError
-from kube_objs.secret import DockerCredentials
+from kube_objs import DockerCredentials
 
 
 class RubiksOutputError(Exception):

@@ -7,7 +7,7 @@ from __future__ import unicode_literals
 
 from kube_obj import KubeObj, KubeSubObj
 from kube_types import *
-from .secret import Secret
+import_relative('secret', 'Secret')
 
 
 class SASecretSubject(KubeSubObj):
