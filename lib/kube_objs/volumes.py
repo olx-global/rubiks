@@ -110,7 +110,9 @@ class PersistentVolume(KubeObj):
         }
 
     def do_validate(self):
-        return len(filter(lambda x: self._data[x] is not None, ('awsElasticBlockStore',))) == 1
+        if len(filter(lambda x: self._data[x] is not None, ('awsElasticBlockStore',))) != 1:
+            raise KubeObjValidationError(self, "awsElasticBlockStore must be specified")
+        return True
 
     def render(self):
         ret = self.renderer(order=('accessModes', 'capacity'))

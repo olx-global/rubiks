@@ -11,6 +11,16 @@ from user_error import UserError
 from var_types import VarEntity
 
 
+class KubeObjValidationError(Exception):
+    def __init__(self, obj, msg):
+        self.obj = obj
+        self.msg = msg
+
+    def __str__(self):
+        return "KubeObj validation failed for object {}: {}: got {}".format(self.obj.__class__.__name__,
+                                                                            self.msg, repr(self.obj))
+
+
 class KubeTypeValidationError(Exception):
     def __init__(self, obj, vstr, path, msg):
         self.obj = obj
@@ -281,6 +291,24 @@ class Domain(String):
                 return False
             return True
         return all(map(comp_ok, dm))
+
+
+class WildcardDomain(Domain):
+    validation_text = "Expected a domain name, with possible starting wildcard"
+
+    def do_check(self, value, path):
+        if not String.do_check(self, value, path):
+            return False
+        if IPv4().do_check(value, path):
+            return True
+        if value == 'localhost':
+            return True
+        if Domain.do_check(self, value, path):
+            return True
+        if value.startswith('*.') and not IPv4().do_check(value, path) and value[2:] != 'localhost' and \
+                Domain.do_check(self, value[2:], path):
+            return True
+        return False
 
 
 class Identifier(String):
