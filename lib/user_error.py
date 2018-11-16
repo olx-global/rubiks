@@ -62,6 +62,8 @@ class UserError(Exception):
     def _clone_tb(self, tb):
         if tb is None:
             return None
+        if isinstance(tb, list):
+            return tb
         ret = fake_traceback(tb)
         ret.tb_frame = fake_frame(ret.tb_frame)
         cur = ret
@@ -91,7 +93,10 @@ def frame_in_paths(t, caller_fn=None):
     if len(os.getenv('RUBIKS_DEBUG', '')) > 0:
         return True
 
-    pth = t.tb_frame.f_code.co_filename
+    if isinstance(t, tuple):
+        pth = t[0]
+    else:
+        pth = t.tb_frame.f_code.co_filename
 
     if caller_fn is not None and pth == caller_fn:
         return True
@@ -104,13 +109,24 @@ def frame_in_paths(t, caller_fn=None):
 
 
 def user_originated(tb):
+    if isinstance(tb, list):
+        return not frame_in_paths(tb[0])
+
     while tb.tb_next is not None:
         tb = tb.tb_next
     return not frame_in_paths(tb)
 
 
 def _filter_traceback(tb, caller_fn=None, fake_start_frame=None):
-    finished = False
+    if isinstance(tb, list):
+        ret = []
+        binpth = tb[0][0]
+        for t in tb:
+            if t[0] != binpth and not frame_in_paths(t, caller_fn):
+                ret.append(t)
+        if fake_start_frame is not None:
+            ret.append(fake_start_frame)
+        return ret
 
     ret = fake_traceback()
     cur = ret
@@ -197,7 +213,12 @@ class user_errors(object):
 
         assert exc is not None
 
-        out = ''.join(traceback.format_exception(*exc)).rstrip()
+        if isinstance(exc[2], list):
+            delayed = True
+            out = 'Traceback (most recent call last):\n' + ''.join(traceback.format_list(exc[2])) + \
+                ''.join(traceback.format_exception_only(exc[0], exc[1])).rstrip()
+        else:
+            out = ''.join(traceback.format_exception(*exc)).rstrip()
 
         if delayed:
             out = '  ' + '\n  '.join(out.split('\n'))

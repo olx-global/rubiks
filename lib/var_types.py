@@ -44,7 +44,22 @@ class VarEntity(object):
         return self
 
     def clone(self):
-        return copy.deepcopy(self)
+        ret = self.__class__(_test=True)
+        def _rec_cp(s):
+            if isinstance(s, VarEntity):
+                return s.clone()
+            elif isinstance(s, dict):
+                ret = s.__class__()
+                for k in s:
+                    ret[k] = _rec_cp(s[k])
+                return ret
+            elif isinstance(s, (tuple, set, list)):
+                return s.__class__(map(_rec_cp, s))
+            else:
+                return copy.copy(s)
+
+        ret.__dict__ = _rec_cp(self.__dict__)
+        return ret
 
     def validation_value(self):
         self._in_validation = True

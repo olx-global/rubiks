@@ -10,6 +10,7 @@ import json
 import os
 import subprocess
 import sys
+import traceback
 
 from user_error import UserError
 import kube_yaml
@@ -86,6 +87,7 @@ class Command(var_types.VarEntity):
         self.good_rc = good_rc
         self.rstrip = rstrip
         self.eol = eol
+        self.tb = traceback.extract_stack()
 
     def to_string(self):
         if self._in_validation:
@@ -98,8 +100,11 @@ class Command(var_types.VarEntity):
             for e in self.env:
                 env[e] = str(self.env[e])
 
-        p = subprocess.Popen(map(str, self.cmd), close_fds=True, shell=False, cwd=self.cwd, env=env,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            p = subprocess.Popen(map(str, self.cmd), close_fds=True, shell=False, cwd=self.cwd, env=env,
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError as e:
+            raise UserError(CommandRuntimeException("Command {} didn't run: {}: {}".format(self.cmd[0], e.__class__.__name__, str(e))), tb=self.tb)
 
         (out, err) = p.communicate()
 
@@ -111,11 +116,11 @@ class Command(var_types.VarEntity):
 
         if self.rstrip:
             out = out.rstrip()
-        if self.eol and out[-1] != '\n':
+        if self.eol and (out == '' or out[-1] != '\n'):
             out += '\n'
 
         if self.good_rc is None or rc in self.good_rc:
             return out
 
-        raise UserError(CommandRuntimeException("Command {} ({}) exited with code rc={}".format(
-                                                    self.cmd[0], ' '.join(self.cmd), p.returncode)))
+        raise UserError(CommandRuntimeException("Command {} exited with code rc={}".format(
+                                                    self.cmd[0], p.returncode)), tb=self.tb)

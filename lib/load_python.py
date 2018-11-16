@@ -416,6 +416,8 @@ class PythonBaseFile(object):
             if args['delay']:
                 return cmd_ent
             else:
+                # we do a naughty here and zap the traceback, so we don't consider it a "delayed" exception
+                cmd_ent.tb = None
                 return str(cmd_ent)
 
         def fileinfo():
