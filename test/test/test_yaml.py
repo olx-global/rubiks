@@ -44,5 +44,18 @@ qux: |-
 """
         self.assertEqual(kube_yaml.yaml_safe_dump(src).strip(), dst.strip())
 
+    def test_quote_all_numbers(self):
+        # the go yaml parser appears to interpret numbers with leading zeros as numbers
+        # while py_yaml interprets them as strings. We now force this to be quoted in
+        # rubiks.
+        src = {'foo': '0012345'}
+        dst = "foo: '0012345'"
+        self.assertEqual(kube_yaml.yaml_safe_dump(src).strip(), dst.strip())
+        src = {'foo': '12345'}
+        dst = "foo: '12345'"
+        self.assertEqual(kube_yaml.yaml_safe_dump(src).strip(), dst.strip())
+        src = {'foo': '0012345abc'}
+        dst = "foo: 0012345abc"
+        self.assertEqual(kube_yaml.yaml_safe_dump(src).strip(), dst.strip())
 if __name__ == '__main__':
     unittest.main()

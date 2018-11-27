@@ -15,6 +15,11 @@ try:
 except ImportError:
     from StringIO import StringIO
 
+try:
+    _ = basestring
+except NameError:
+    basestring = str
+
 __all__ = ['quoted', 'literal', 'yaml_safe_dump', 'yaml_load']
 
 # This file is very magical, allowing for a few deep dives in the inner workings of the pyyaml
@@ -37,10 +42,13 @@ class FakeStringIO(object):
 
 class BlockRepresenter(yaml.representer.BaseRepresenter):
     def represent_scalar(self, tag, value, style=None):
-        if style is None and not isinstance(value, VarEntity):
+        if tag.endswith(':str') and isinstance(value, basestring) and value != '' and value.strip('0123456789') == '':
+            style = "'"
+        elif style is None and not isinstance(value, VarEntity):
             for c in u"\u000a\u000d\u001c\u001d\u001e\u0085\u2028\u2029":
                 if c in value:
                     style = '|'
+
         return yaml.representer.BaseRepresenter.represent_scalar(self, tag, value, style=style)
 
 
