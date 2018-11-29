@@ -15,7 +15,6 @@ from kube_obj import KubeObj
 from kube_yaml import yaml_safe_dump, yaml_load
 from util import mkdir_p
 from user_error import UserError
-from kube_objs import DockerCredentials
 
 
 class RubiksOutputError(Exception):
@@ -339,7 +338,7 @@ class OutputMember(object):
         if obj.kobj.__class__ is not self.kobj.__class__:
             return False
 
-        if self.kobj.__class__ is DockerCredentials:
+        if self.kobj.__class__ is kube_objs.DockerCredentials:
             # we special case docker credentials because they're used as pull secrets
             # and this allows us to be cleverer about the pull secrets
             return self.kobj._data['dockers'] == obj.kobj._data['dockers']
