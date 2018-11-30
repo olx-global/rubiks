@@ -8,13 +8,14 @@ from __future__ import unicode_literals
 import json
 import sys
 
+from .bases import CommandRepositoryBase
 from command import Command
 from kube_obj import KubeObj
 import load_python
 import kube_yaml
 
 
-class Command_gen_py(Command):
+class Command_gen_py(Command, CommandRepositoryBase):
     """generate python from yaml or json input"""
 
     def populate_args(self, parser):
@@ -26,6 +27,7 @@ class Command_gen_py(Command):
         parser.add_argument('file', help='file to try and parse (use "-" for stdin)')
 
     def run(self, args):
+        self.get_repository(can_fail=True)
         load_python.PythonBaseFile.get_kube_objs()
 
         if args.file == '-':

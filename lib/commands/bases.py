@@ -14,12 +14,18 @@ import loader
 
 
 class CommandRepositoryBase(object):
-    def get_repository(self):
+    def get_repository(self, can_fail=False):
+        r = None
         try:
             r = RubiksRepository(cwd=self.global_args.base_directory)
+            modules = [x.get_module_path() for x in r.get_modules()]
         except RepositoryError as e:
-            raise RuntimeException(str(e))
-        obj_registry.init(r.is_openshift)
+            if not can_fail:
+                raise RuntimeException(str(e))
+        kube_loader.load(*modules)
+        
+        if r is not None:
+            obj_registry.init(r.is_openshift)
         return r
 
 

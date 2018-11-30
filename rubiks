@@ -15,7 +15,6 @@ sys.path.insert(0, os.path.join(repobase, 'lib'))
 
 import python_path
 import command_loader
-import kube_loader
 
 import command
 

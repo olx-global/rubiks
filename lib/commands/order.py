@@ -9,13 +9,14 @@ import json
 import os
 import sys
 
+from .bases import CommandRepositoryBase
 from command import Command
 from kube_obj import KubeObj
 import load_python
 import kube_yaml
 
 
-class Command_order(Command):
+class Command_order(Command, CommandRepositoryBase):
     """generate correct order to apply a set of yaml files so that dependencies are met"""
 
     def populate_args(self, parser):
@@ -30,6 +31,7 @@ class Command_order(Command):
         parser.add_argument('file_or_dir', nargs='+', help='Files and directories to search')
 
     def run(self, args):
+        self.get_repository(can_fail=True)
         def walk(arg):
             if os.path.isfile(arg):
                 return [arg]

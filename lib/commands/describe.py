@@ -5,19 +5,21 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 
+from .bases import CommandRepositoryBase
 from command import Command
 from kube_obj import KubeObj
 import load_python
 import sys
 
 
-class Command_describe(Command):
+class Command_describe(Command, CommandRepositoryBase):
     """describe the kubernetes object types to be included in kube files"""
 
     def populate_args(self, parser):
         parser.add_argument('objects', nargs='+', help='objects to describe')
 
     def run(self, args):
+        self.get_repository(can_fail=True)
         objs = load_python.PythonBaseFile.get_kube_objs()
 
         found = False
@@ -91,7 +93,7 @@ class Command_describe(Command):
             return 1
 
 
-class Command_list_objs(Command):
+class Command_list_objs(Command, CommandRepositoryBase):
     """list the kubernetes/openshift object types we support"""
 
     def populate_args(self, parser):
@@ -99,6 +101,7 @@ class Command_list_objs(Command):
                             help='show intermediate objects as well as top-level')
 
     def run(self, args):
+        self.get_repository(can_fail=True)
         objs = load_python.PythonBaseFile.get_kube_objs()
 
         for oname in sorted(objs.keys()):

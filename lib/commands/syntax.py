@@ -8,12 +8,13 @@ from __future__ import unicode_literals
 import os
 import sys
 
+from .bases import CommandRepositoryBase
 from command import Command
 from util import mkdir_p
 from load_python import PythonFileCollection, PythonBaseFile
 
 
-class Command_syntax(Command):
+class Command_syntax(Command, CommandRepositoryBase):
     """generate syntax highlighting configuration for an editor"""
 
     def populate_args(self, parser):
@@ -113,5 +114,6 @@ let b:current_syntax = "rubiks"
         self.filetext(args, os.path.join(vimdir, 'ftdetect', 'rubiks.vim'), filetypes, comment_char='"')
 
     def run(self, args):
+        self.get_repository(can_fail=True)
         if args.editor == 'vim':
             return self.run_vim(args)

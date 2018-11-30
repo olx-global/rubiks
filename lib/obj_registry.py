@@ -7,7 +7,6 @@ from __future__ import unicode_literals
 
 from user_error import UserError
 from kube_obj import KubeBaseObj, KubeObj
-from kube_objs import Namespace
 
 _REG = None
 
@@ -109,12 +108,16 @@ KubeBaseObj.add_obj = add_obj
 
 
 def get_ns(self, name):
-    ret = _REG.get_id(Namespace, name)
-    if ret is None:
-        return Namespace(name)
-    if len(ret) > 1:
-        raise UserError(ValueError("More than one namespace with name {} has been declared".format(name)))
-    return ret[0]
+    try:
+        from kube_objs import Namespace
+        ret = _REG.get_id(Namespace, name)
+        if ret is None:
+            return Namespace(name)
+        if len(ret) > 1:
+            raise UserError(ValueError("More than one namespace with name {} has been declared".format(name)))
+        return ret[0]
+    except ImportError:
+        return None
 
 KubeBaseObj.get_ns = get_ns
 
