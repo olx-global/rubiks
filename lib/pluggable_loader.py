@@ -116,25 +116,25 @@ class RubiksPluggableCollection(loader.Loader):
     def import_relative(self, py_context, name_path, name, exports, **kwargs):
         new_context = None
 
-        for b in self.bases:
-            pth = os.path.join(b, self.subdir, name_path)
-            if os.path.exists(pth):
-                path = loader.Path(pth, base=b)
+        b = py_context.path.base
+        pth = os.path.join(b, self.subdir, name_path)
+        if os.path.exists(pth):
+            path = loader.Path(pth, base=b)
 
-                basename = name
-                if 'import_as' in kwargs and kwargs['import_as'] is not None:
-                    basename = kwargs['import_as']
-                if 'import_as' in kwargs:
-                    del kwargs['import_as']
+            basename = name
+            if 'import_as' in kwargs and kwargs['import_as'] is not None:
+                basename = kwargs['import_as']
+            if 'import_as' in kwargs:
+                del kwargs['import_as']
 
-                self.add_dep(self.current_context[-1], path)
+            self.add_dep(self.current_context[-1], path)
 
-                new_context = self.get_file_context(path)
+            new_context = self.get_file_context(path)
 
-                self.import_symbols(name, new_context.path, py_context.path, basename,
-                                    new_context, py_context._current_module, exports, **kwargs)
+            self.import_symbols(name, new_context.path, py_context.path, basename,
+                                new_context, py_context._current_module, exports, **kwargs)
 
-                return new_context.get_module()
+            return new_context.get_module()
         return new_context
 
     def import_objects(self, py_context, names):
