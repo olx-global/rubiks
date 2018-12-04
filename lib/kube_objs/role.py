@@ -257,6 +257,9 @@ class ClusterRoleBinding(RoleBindingBase):
     kubectltype = 'clusterrolebinding'
     _uses_namespace = False
 
+    _types = {
+        'name': SystemIdentifier,
+        }
 
 class RoleBinding(RoleBindingBase):
     apiVersion = 'v1'
