@@ -24,7 +24,7 @@ class RubiksPluggablePython(object):
 
         self.path = path
         self.collection = weakref.ref(collection)
-
+        self.imported_objects = []
         self.module = self.do_compile()
 
     def debug(self, *args):
@@ -34,7 +34,11 @@ class RubiksPluggablePython(object):
         return self.module.__dict__.keys()
 
     def get_symbol(self, symname, *args, **kwargs):
-        return self.module.__dict__[symname]
+        sym = self.module.__dict__[symname]
+        for s in self.imported_objects:
+            if sym is s:
+                return None
+        return sym
 
     def get_module(self, *args, **kwargs):
         return self.module
@@ -53,7 +57,7 @@ class RubiksPluggablePython(object):
             self.debug(3, '{}: import_objects({})'.format(self.path.base_rel_path, names))
             if len(names) == 0:
                 raise ValueError('import_objects() must be called with names')
-            return self.collection().import_objects(self, names)
+            self.imported_objects.extend(self.collection().import_objects(self, names))
 
         return {'import_relative': import_relative, 'import_objects': import_objects}
 
@@ -111,7 +115,11 @@ class RubiksPluggableCollection(loader.Loader):
                     for symname in ctx.get_symnames():
                         # Note we take last-match here so we can sub-class properly
                         # ordering is left as an exercise to the reader
-                        self.symbols[symname] = ctx.get_symbol(symname)
+                        if symname.startswith('__'):
+                            continue
+                        sym = ctx.get_symbol(symname)
+                        if sym is not None:
+                            self.symbols[symname] = sym
 
     def import_relative(self, py_context, name_path, name, exports, **kwargs):
         new_context = None
@@ -138,6 +146,7 @@ class RubiksPluggableCollection(loader.Loader):
         return new_context
 
     def import_objects(self, py_context, names):
+        ret = []
         for n in names:
             sn = n
             nn = n
@@ -149,6 +158,9 @@ class RubiksPluggableCollection(loader.Loader):
                 raise ImportError("Can't find symbol {} in any currently loaded module".format(n))
 
             py_context._current_module.__dict__[nn] = self.symbols[sn]
+            ret.append(self.symbols[sn])
+
+        return ret
 
 
 class KubeObjCollection(RubiksPluggableCollection):
