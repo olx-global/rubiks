@@ -90,9 +90,12 @@ class KubeBaseObj(object):
         self.set_namespace(KubeBaseObj._default_ns)
 
         self._in_cluster = KubeBaseObj._default_cluster
+        if '_no_add' not in kwargs or not kwargs['_no_add']:
+            if hasattr(self, 'add_obj'):
+                self.add_obj()
 
-        if hasattr(self, 'add_obj'):
-            self.add_obj()
+        if '_no_add' in kwargs:
+            del kwargs['_no_add']
 
         if self.has_metadata:
             self.annotations = {}
