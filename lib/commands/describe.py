@@ -87,7 +87,7 @@ class Command_describe(Command, CommandRepositoryBase):
                         print('', file=sys.stdout)
                     found = True
                     print('.'.join(ss[0:]) + ':', file=sys.stdout)
-                    print(obj.get_help(), file=sys.stdout)
+                    print(obj.get_help().render_terminal(), file=sys.stdout)
 
         if not found:
             return 1

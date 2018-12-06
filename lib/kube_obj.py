@@ -9,6 +9,7 @@ import copy
 import traceback
 import sys
 from collections import OrderedDict
+from kube_help import KubeHelper
 
 from kube_types import *
 from user_error import UserError, paths as user_error_paths
@@ -307,6 +308,14 @@ class KubeBaseObj(object):
 
     @classmethod
     def get_help(cls):
+        document_link = cls._document_url if hasattr(cls, '_document_url') else None
+        
+        ret_help = KubeHelper(
+            name=cls.__name__,
+            document=cls.__doc__,
+            documentlink=document_link
+            )
+
         def _rec_superclasses(kls):
             ret = []
             superclasses = list(filter(lambda x: x is not KubeBaseObj and x is not KubeSubObj and
@@ -320,58 +329,32 @@ class KubeBaseObj(object):
 
             return ret
 
-        subclasses = list(map(lambda x: x.__name__, cls.get_subclasses(non_abstract=False, include_self=False)))
-        superclasses = list(map(lambda x: x.__name__, _rec_superclasses(cls)))
+        ret_help.class_subclasses = list(map(lambda x: x.__name__, cls.get_subclasses(non_abstract=False, include_self=False)))
+        ret_help.class_superclasses = list(map(lambda x: x.__name__, _rec_superclasses(cls)))
 
-        types = cls.resolve_types()
+        ret_help.class_types = cls.resolve_types()
 
-        abstract = ''
-        if cls.is_abstract_type():
-            abstract = ' (abstract type)'
-
-        identifier = None
-        if hasattr(cls, 'identifier') and cls.identifier is not None:
-            identifier = cls.identifier
-
-        txt = '{}{}:\n'.format(cls.__name__, abstract)
-        if len(superclasses) != 0:
-            txt += '  parents: {}\n'.format(', '.join(superclasses))
-        if len(subclasses) != 0:
-            txt += '  children: {}\n'.format(', '.join(subclasses))
-        if len(cls._parent_types) != 0:
-            txt += '  parent types: {}\n'.format(', '.join(sorted(cls._parent_types.keys())))
-        if cls.has_metadata:
-            txt += '  metadata:\n'
-            txt += '    annotations:          {}\n'.format(Map(String, String).name())
-            txt += '    labels:               {}\n'.format(Map(String, String).name())
-        txt += '  properties:\n'
-        if identifier is not None:
-            spc = ''
-            if len(identifier) < 7:
-                spc = (7 - len(identifier)) * ' '
-            txt += '    {} (identifier): {}{}\n'.format(identifier, spc, types[identifier].name())
+        ret_help.class_is_abstract = cls.is_abstract_type()
+        ret_help.class_identifier = cls.identifier if hasattr(cls, 'identifier') and cls.identifier is not None else None
 
         mapping = cls._find_defaults('_map')
-        rmapping = {}
+        ret_help.class_mapping = {}
         for d in mapping:
-            if mapping[d] not in rmapping:
-                rmapping[mapping[d]] = []
-            rmapping[mapping[d]].append(d)
+            if mapping[d] not in ret_help.class_mapping:
+                ret_help.class_mapping[mapping[d]] = []
+            ret_help.class_mapping[mapping[d]].append(d)
 
-        for p in sorted(types.keys()):
-            if p == identifier:
-                continue
-            spc = ''
-            if len(p) < 20:
-                spc = (20 - len(p)) * ' '
-            if hasattr(cls, 'xf_{}'.format(p)):
-                xf = '*'
-            else:
-                xf = ' '
-            txt += '   {}{}: {}{}\n'.format(xf, p, spc, types[p].name())
-            if p in rmapping:
-                txt += '      ({})\n'.format(', '.join(rmapping[p]))
-        return txt
+        ret_help.class_parent_types = cls._parent_types
+        ret_help.class_has_metadata = cls.has_metadata
+
+        ret_help.class_xf_detail = {}
+        for p in ret_help.class_types:
+            if hasattr(cls, 'xf_' + p):
+                ret_help.class_xf_detail[p] = '<unknown transformation>'
+                if hasattr(getattr(cls, 'xf_' + p), '__doc__') and getattr(cls, 'xf_' + p).__doc__ is not None and len(getattr(cls, 'xf_' + p).__doc__):
+                    ret_help.class_xf_detail[p] = getattr(cls, 'xf_' + p).__doc__
+
+        return ret_help
 
     def has_child_object(self, obj):
         assert isinstance(obj, KubeBaseObj)
