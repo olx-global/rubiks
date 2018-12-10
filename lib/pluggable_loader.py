@@ -50,7 +50,7 @@ class RubiksPluggablePython(object):
                     name.lower().strip('0123456789abcdefghijklmnopqrstuvwxyz_') != '':
                 raise loader.LoaderImportError('import_relative() uses a python-like import (got {})'.format(name))
             name_path = '/'.join(name.split('.')) + '.py'
-            kwargs['__reserved_names'] = ('import_relative', 'import_object')
+            kwargs['__reserved_names'] = ('import_relative', 'import_objects')
             return self.collection().import_relative(self, name_path, name, exports, **kwargs)
 
         def import_objects(*names):

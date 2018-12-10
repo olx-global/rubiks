@@ -226,6 +226,8 @@ class KubeBaseObj(object):
             types.update(cls._find_defaults('_types'))
 
             for k in types:
+                if types[k] is None:
+                    continue
                 t = basic_validation(types[k])
                 if t is not None:
                     types[k] = t
@@ -256,6 +258,8 @@ class KubeBaseObj(object):
         types = cls.resolve_types()
         ret = {}
         for t in types.values():
+            if t is None:
+                continue
             actual_type = t.original_type()
             if actual_type is None:
                 continue
@@ -329,13 +333,15 @@ class KubeBaseObj(object):
 
             return ret
 
-        ret_help.class_subclasses = list(map(lambda x: x.__name__, cls.get_subclasses(non_abstract=False, include_self=False)))
+        ret_help.class_subclasses = list(map(lambda x: x.__name__,
+                                             cls.get_subclasses(non_abstract=False, include_self=False)))
         ret_help.class_superclasses = list(map(lambda x: x.__name__, _rec_superclasses(cls)))
 
         ret_help.class_types = cls.resolve_types()
 
         ret_help.class_is_abstract = cls.is_abstract_type()
-        ret_help.class_identifier = cls.identifier if hasattr(cls, 'identifier') and cls.identifier is not None else None
+        ret_help.class_identifier = cls.identifier if hasattr(cls, 'identifier') and cls.identifier is not None \
+                                                 else None
 
         mapping = cls._find_defaults('_map')
         ret_help.class_mapping = {}
@@ -348,11 +354,21 @@ class KubeBaseObj(object):
         ret_help.class_has_metadata = cls.has_metadata
 
         ret_help.class_xf_detail = {}
+        dead_types = set()
         for p in ret_help.class_types:
+            if ret_help.class_types[p] is None:
+                dead_types.add(p)
+                continue
+
             if hasattr(cls, 'xf_' + p):
                 ret_help.class_xf_detail[p] = '<unknown transformation>'
-                if hasattr(getattr(cls, 'xf_' + p), '__doc__') and getattr(cls, 'xf_' + p).__doc__ is not None and len(getattr(cls, 'xf_' + p).__doc__):
+                if hasattr(getattr(cls, 'xf_' + p), '__doc__') and \
+                        getattr(cls, 'xf_' + p).__doc__ is not None and \
+                        len(getattr(cls, 'xf_' + p).__doc__) != 0:
                     ret_help.class_xf_detail[p] = getattr(cls, 'xf_' + p).__doc__
+
+        for p in dead_types:
+            del ret_help.class_types[p]
 
         return ret_help
 
@@ -400,9 +416,13 @@ class KubeBaseObj(object):
 
         for k in types:
             if k in data:
-                types[k].check(data[k], path + '.' + k)
+                if types[k] is None and data[k] is not None:
+                    raise UserError(KeyError("{} is a removed attribute of {}".format(k, self.__class__.__name__)))
+                if types[k] is not None:
+                    types[k].check(data[k], path + '.' + k)
             else:
-                types[k].check(None, path + '.' + k)
+                if types[k] is not None:
+                    types[k].check(None, path + '.' + k)
 
         for k in data:
             if k not in types and k not in mapping:

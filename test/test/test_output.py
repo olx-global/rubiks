@@ -53,6 +53,8 @@ class FakeOutputMember(object):
 class BaseOutputTest(unittest.TestCase):
     def setUp(self):
         self.repo = rubiks_repository.RubiksRepository()
+        modules = [x.get_module_path() for x in self.repo.get_modules()]
+        kube_loader.load(*modules)
         self.collection = output.OutputCollection(loader.Loader(self.repo), self.repo)
         self.collection.confidential = output.ConfidentialOutput
         self.collection.written = []
