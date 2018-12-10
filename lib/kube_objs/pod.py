@@ -217,21 +217,87 @@ class ContainerProbeHTTPSpec(ContainerProbeBaseSpec):
         return {'httpGet': ret}
 
 
-class SecurityContext(KubeSubObj):
+class SELinuxOptions(KubeSubObj):
+    _defaults = {
+        'level': None,
+        'role': None,
+        'type': None,
+        'user': None,
+        }
+
+    _types = {
+        'level': Nullable(NonEmpty(String)),
+        'role': Nullable(NonEmpty(String)),
+        'type': Nullable(NonEmpty(String)),
+        'user': Nullable(NonEmpty(String)),
+        }
+
+    def render(self):
+        return self.renderer()
+
+class PodSecurityContext(KubeSubObj):
     _defaults = {
         'fsGroup': None,
-        'privileged': None,
         'runAsNonRoot': None,
         'runAsUser': None,
         'supplementalGroups': None,
+        'seLinuxOptions': None,
         }
 
     _types = {
         'fsGroup': Nullable(Integer),
-        'privileged': Nullable(Boolean),
         'runAsNonRoot': Nullable(Boolean),
         'runAsUser': Nullable(Integer),
         'supplementalGroups': Nullable(List(Integer)),
+        'seLinuxOptions': Nullable(SELinuxOptions),
+        }
+
+    def render(self):
+        return self.renderer()
+
+
+class Capability(String):
+    """capability is the CAP_* constant from linux without the first 4 chars"""
+    def do_check(self, value, path):
+        if not String.do_check(self, value, path):
+            return False
+        if value == '':
+            return False
+        if len(value.strip('ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890_')) != 0:
+            return False
+        return True
+
+class Capabilities(KubeSubObj):
+    _defaults = {
+        'add': None,
+        'drop': None,
+        }
+
+    _types = {
+        'add': Nullable(List(Capability)),
+        'drop': Nullable(List(Capability)),
+        }
+
+    def render(self):
+        return self.renderer()
+
+class SecurityContext(KubeSubObj):
+    _defaults = {
+        'capabilities': None,
+        'privileged': None,
+        'readOnlyRootFilesystem': None,
+        'runAsNonRoot': None,
+        'runAsUser': None,
+        'seLinuxOptions': None,
+        }
+
+    _types = {
+        'capabilities': Nullable(Capabilities),
+        'privileged': Nullable(Boolean),
+        'readOnlyRootFilesystem': Nullable(Boolean),
+        'runAsNonRoot': Nullable(Boolean),
+        'runAsUser': Nullable(Integer),
+        'seLinuxOptions': Nullable(SELinuxOptions),
         }
 
     def render(self):
@@ -584,7 +650,7 @@ class PodTemplateSpec(KubeSubObj):
         'imagePullSecrets': Nullable(List(PodImagePullSecret)),
         'nodeSelector': Nullable(Map(String, String)),
         'restartPolicy': Nullable(Enum('Always', 'OnFailure', 'Never')),
-        'securityContext': Nullable(SecurityContext),
+        'securityContext': Nullable(PodSecurityContext),
         'serviceAccountName': Nullable(Identifier),
         'terminationGracePeriodSeconds': Nullable(Positive(Integer)),
         'volumes': Nullable(List(PodVolumeBaseSpec)),

@@ -156,11 +156,7 @@ class RoleSubject(KubeSubObj):
         return True
 
     def render(self):
-        ret = self.renderer(order=('name', 'kind', 'ns'))
-        if 'ns' in ret:
-            ret['namespace'] = ret['ns']
-            del ret['ns']
-        return ret
+        return self.renderer(order=('name', 'kind', 'namespace'), mapping={'ns': 'namespace'})
 
 
 class RoleRef(KubeSubObj):
