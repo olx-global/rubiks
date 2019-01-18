@@ -7,6 +7,7 @@ from __future__ import unicode_literals
 
 import json
 import sys
+import types
 
 from .bases import CommandRepositoryBase
 from command import Command
@@ -37,51 +38,52 @@ class Command_gen_py(Command, CommandRepositoryBase):
             with open(args.file) as f:
                 data = f.read()
 
-        value = None
+        loaded_values = None
         if data.lstrip().startswith('{'):
             try:
-                value = json.loads(data)
+                loaded_values = [json.loads(data)]
             except ValueError:
                 pass
 
-        if value is None:
+        if loaded_values is None:
             try:
-                value = kube_yaml.yaml_load(data)
-                if not isinstance(value, dict):
-                    value = None
+                loaded_values = kube_yaml.yaml_load_all(data)
+                if not isinstance(loaded_values, types.GeneratorType):
+                    loaded_values = None
             except ValueError:
                 pass
 
-        if value is None:
+        if loaded_values is None:
             print("Cannot load {} as either JSON or YAML".format(args.file), file=sys.stderr)
             return 1
 
-        namespace = args.namespace
-        if 'kind' in value and value['kind'] == 'List':
-            values = value['items']
-        else:
-            values = [value]
+        for value in loaded_values:
+            namespace = args.namespace
+            if 'kind' in value and value['kind'] == 'List':
+                values = value['items']
+            else:
+                values = [value]
 
-        last_ns = None
+            last_ns = None
 
-        for v in values:
-            if args.namespace is None:
-                try:
-                    namespace = v['metadata']['namespace']
-                except KeyError:
-                    pass
+            for v in values:
+                if args.namespace is None:
+                    try:
+                        namespace = v['metadata']['namespace']
+                    except KeyError:
+                        pass
 
-            indent = args.indent
+                indent = args.indent
 
-            obj = KubeObj.parse_obj(v)
+                obj = KubeObj.parse_obj(v)
 
-            if not obj._uses_namespace:
-                namespace = None
+                if not obj._uses_namespace:
+                    namespace = None
 
-            if namespace is not None and (args.namespace is not None or args.with_namespace):
-                if namespace != last_ns:
-                    print((' ' * args.indent) + 'with namespace({}):'.format(repr(namespace)))
-                indent += 4
+                if namespace is not None and (args.namespace is not None or args.with_namespace):
+                    if namespace != last_ns:
+                        print((' ' * args.indent) + 'with namespace({}):'.format(repr(namespace)))
+                    indent += 4
 
-            print((' ' * indent) + obj.dump_obj(indent, args.include_defaults) + '\n')
-            last_ns = namespace
+                print((' ' * indent) + obj.dump_obj(indent, args.include_defaults) + '\n')
+                last_ns = namespace

@@ -12,7 +12,7 @@ import weakref
 import kube_objs
 import var_types
 from kube_obj import KubeObj
-from kube_yaml import yaml_safe_dump, yaml_load
+from kube_yaml import yaml_safe_dump, yaml_safe_dump_all, yaml_load
 from util import mkdir_p
 from user_error import UserError
 
@@ -354,7 +354,10 @@ class OutputMember(object):
         return self.cached_obj is not None
 
     def yaml(self):
-        self.cached_yaml = yaml_safe_dump(self.cached_obj, default_flow_style=False)
+        if isinstance(self.cached_obj, list):
+            self.cached_yaml = yaml_safe_dump_all(self.cached_obj, default_flow_style=False)
+        else:
+            self.cached_yaml = yaml_safe_dump(self.cached_obj, default_flow_style=False)
 
     def filename_conversion(self, filename):
         return filename.replace(':', '_')
