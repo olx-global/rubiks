@@ -37,9 +37,9 @@ class PolicyRule(KubeSubObj):
 
     _types = {
         'resourceNames': Nullable(List(String)),
-        'resources': NonEmpty(List(NonEmpty(String))),
+        'resources': Nullable(List(NonEmpty(String))),
         'verbs': NonEmpty(List(Enum('get', 'list', 'create', 'update', 'delete', 'deletecollection', 'watch'))),
-        'apiGroups': NonEmpty(List(String)),
+        'apiGroups': Nullable(List(String)),
         'attributeRestrictions': Nullable(String),
         'nonResourceURLs': Nullable(List(String)),
         }
