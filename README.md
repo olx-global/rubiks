@@ -1,6 +1,6 @@
-# DEPRECATED [![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
+<p>DEPRECATED <img src="http://unmaintained.tech/badge.svg"/></p>
 
-This repository is now deprecated and it will be available until 01.06.2021.
+<p>This repository is now deprecated and it will be available until 01.06.2021.</p>
 
 <p align="center">
   <img src="docs/logos/rubiks-logo-horizontal.png" title="Rubiks Logo">
