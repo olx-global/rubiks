@@ -1,4 +1,4 @@
-<p>DEPRECATED <img src="https://unmaintained.tech/badge.svg"></p>
+<p><H1>DEPRECATED - NO MAINTENANCE INTENDED</H1></p>
 
 <p>This repository is now deprecated and it will be available until 01.06.2021.</p>
 
